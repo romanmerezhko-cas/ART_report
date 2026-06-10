@@ -1,0 +1,9 @@
+# Asana PAT token - never commit
+asana_pat.txt
+
+# Intermediate JSON data files (contain employee names, hours, task details)
+*.json
+
+# Old one-off scripts (superseded by run_art_report.ps1)
+collect_june_data.ps1
+generate_june_report.ps1

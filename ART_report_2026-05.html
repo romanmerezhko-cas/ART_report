@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>ART Department Report — May 2026</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f6fa; color: #2d3748; font-size: 14px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 28px 32px; margin-bottom: 24px; }
+  .header h1 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+  .header .meta { opacity: 0.85; font-size: 13px; }
+  .header .stats { display: flex; gap: 32px; margin-top: 20px; }
+  .header .stat { text-align: center; }
+  .header .stat-val { font-size: 28px; font-weight: 700; }
+  .header .stat-lbl { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+  .notice { background: #f0fff4; border-left: 4px solid #38a169; padding: 12px 16px; border-radius: 6px; margin-bottom: 24px; font-size: 13px; color: #276749; }
+
+  .section-title { font-size: 16px; font-weight: 700; color: #4a5568; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; display: block; width: 4px; height: 18px; background: #667eea; border-radius: 2px; }
+
+  .card { background: white; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+  .summary-table { width: 100%; border-collapse: collapse; }
+  .summary-table th { background: #f7f8fc; text-align: left; padding: 10px 14px; font-weight: 600; font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; }
+  .summary-table td { padding: 10px 14px; border-bottom: 1px solid #f0f2f7; vertical-align: middle; }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table tr:hover td { background: #f7f8fc; }
+
+  .bar-wrap { width: 100%; background: #edf2f7; border-radius: 4px; height: 8px; min-width: 120px; }
+  .bar { height: 8px; border-radius: 4px; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .rank-1 { color: #744210; background: #fefcbf; }
+  .rank-2 { color: #1a365d; background: #bee3f8; }
+  .rank-3 { color: #22543d; background: #c6f6d5; }
+
+  .project-name { font-weight: 500; max-width: 260px; }
+
+  .hours { font-weight: 700; font-size: 15px; color: #2d3748; }
+  .tasks-count { font-weight: 600; color: #4a5568; text-align: center; }
+  .pct { font-weight: 600; color: #718096; font-size: 13px; }
+
+  .art-types { display: flex; flex-wrap: wrap; gap: 4px; }
+  .art-pill { display: inline-block; padding: 1px 7px; border-radius: 8px; font-size: 11px; font-weight: 500; }
+  .art-2d   { background: #e9d8fd; color: #553c9a; }
+  .art-3d   { background: #bee3f8; color: #2a69ac; }
+  .art-vfx  { background: #c6f6d5; color: #276749; }
+  .art-anim { background: #feebc8; color: #7b341e; }
+  .art-aso  { background: #fed7e2; color: #97266d; }
+  .art-ban  { background: #e2e8f0; color: #4a5568; }
+  .art-cas  { background: #e6fffa; color: #234e52; }
+
+  .dist-chart { display: flex; flex-direction: column; gap: 10px; }
+  .dist-row { display: flex; align-items: center; gap: 12px; }
+  .dist-label { width: 240px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .dist-bar-wrap { flex: 1; background: #edf2f7; border-radius: 4px; height: 20px; }
+  .dist-bar { height: 20px; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 11px; color: white; font-weight: 600; white-space: nowrap; transition: width 0.3s; }
+  .dist-val { width: 80px; text-align: right; font-size: 12px; color: #718096; flex-shrink: 0; }
+
+  .dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .dept-card { background: #f7f8fc; border-radius: 8px; padding: 16px; text-align: center; border: 1px solid #e2e8f0; }
+  .dept-card .dept-name { font-size: 12px; font-weight: 600; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .dept-card .dept-hours { font-size: 24px; font-weight: 700; color: #2d3748; }
+  .dept-card .dept-pct { font-size: 12px; color: #a0aec0; margin-top: 2px; }
+
+  details { margin-bottom: 8px; }
+  details summary { cursor: pointer; padding: 10px 14px; background: #f7f8fc; border-radius: 8px; font-weight: 600; font-size: 13px; list-style: none; display: flex; align-items: center; justify-content: space-between; border: 1px solid #e2e8f0; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after { content: '▸'; color: #a0aec0; font-size: 12px; }
+  details[open] summary::after { content: '▾'; }
+  details[open] summary { border-radius: 8px 8px 0 0; }
+  .detail-content { border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; overflow: hidden; }
+  .detail-table { width: 100%; border-collapse: collapse; }
+  .detail-table th { background: #f0f4f8; padding: 8px 12px; text-align: left; font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.4px; }
+  .detail-table td { padding: 8px 12px; border-bottom: 1px solid #f0f2f7; font-size: 13px; }
+  .detail-table tr:last-child td { border-bottom: none; }
+  .detail-table tr:hover td { background: #f7f8fc; }
+  .task-link { color: #5a67d8; text-decoration: none; }
+  .task-link:hover { text-decoration: underline; }
+
+  .total-row td { font-weight: 700; background: #f7f8fc; }
+
+  @media (max-width: 768px) {
+    .header .stats { flex-wrap: wrap; gap: 16px; }
+    .dist-label { width: 140px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>ART Department — Отчёт по задачам</h1>
+    <div class="meta">Период: 01.05.2026 — 31.05.2026 &nbsp;|&nbsp; Портфель: ART Portfolio &nbsp;|&nbsp; Источник: Asana</div>
+    <div class="stats">
+      <div class="stat"><div class="stat-val">2 478</div><div class="stat-lbl">Часов (Actual Time)</div></div>
+      <div class="stat"><div class="stat-val">154</div><div class="stat-lbl">Задач с трекингом</div></div>
+      <div class="stat"><div class="stat-val">20</div><div class="stat-lbl">Проектов</div></div>
+      <div class="stat"><div class="stat-val">10</div><div class="stat-lbl">Направлений ART</div></div>
+    </div>
+  </div>
+
+  <!-- NOTICE -->
+  <div class="notice">
+    ✅ <strong>Данные точно отфильтрованы по периоду</strong> — через Asana API <em>time_tracking_entries</em> (entered_on 01.05–31.05.2026). Задачи без записей в мае не включены.
+  </div>
+
+  <!-- DEPT BREAKDOWN -->
+  <div class="card">
+    <div class="section-title">Разбивка по направлениям ART</div>
+    <div class="dept-grid">
+      <div class="dept-card">
+        <div class="dept-name">3D Art</div>
+        <div class="dept-hours">736 ч</div>
+        <div class="dept-pct">29.7% от общего</div>
+      </div>
+      <div class="dept-card">
+        <div class="dept-name">2D Art / UI</div>
+        <div class="dept-hours">594 ч</div>
+        <div class="dept-pct">24.0% от общего</div>
+      </div>
+      <div class="dept-card">
+        <div class="dept-name">Animations</div>
+        <div class="dept-hours">324 ч</div>
+        <div class="dept-pct">13.1% от общего</div>
+      </div>
+      <div class="dept-card">
+        <div class="dept-name">Banner ADS</div>
+        <div class="dept-hours">169 ч</div>
+        <div class="dept-pct">6.8% от общего</div>
+      </div>
+      <div class="dept-card">
+        <div class="dept-name">ASO In App Events</div>
+        <div class="dept-hours">166 ч</div>
+        <div class="dept-pct">6.7% от общего</div>
+      </div>
+      <div class="dept-card">
+        <div class="dept-name">ASO Screenshots</div>
+        <div class="dept-hours">162 ч</div>
+        <div class="dept-pct">6.5% от общего</div>
+      </div>
+      <div class="dept-card">
+        <div class="dept-name">ASO CPP</div>
+        <div class="dept-hours">147 ч</div>
+        <div class="dept-pct">5.9% от общего</div>
+      </div>
+      <div class="dept-card">
+        <div class="dept-name">ASO Icons</div>
+        <div class="dept-hours">124 ч</div>
+        <div class="dept-pct">5.0% от общего</div>
+      </div>
+      <div class="dept-card">
+        <div class="dept-name">CAS Requests</div>
+        <div class="dept-hours">24 ч</div>
+        <div class="dept-pct">1.0% от общего</div>
+      </div>
+      <div class="dept-card">
+        <div class="dept-name">VFX</div>
+        <div class="dept-hours">24 ч</div>
+        <div class="dept-pct">1.0% от общего</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISTRIBUTION CHART -->
+  <div class="card">
+    <div class="section-title">Распределение по учётным проектам</div>
+    <div class="dist-chart">
+      <div class="dist-row">
+        <div class="dist-label">Brain Puzzle</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:100%;background:#43e97b;">16.3%</div></div>
+        <div class="dist-val">403.25 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Superhero Crime Open World War</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:81.8%;background:#667eea;">13.3%</div></div>
+        <div class="dist-val">330 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Traffic Asphalt</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:65.5%;background:#764ba2;">10.7%</div></div>
+        <div class="dist-val">264 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Custom Club</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:45.6%;background:#96fbc4;color:#2d6a4f;">7.4%</div></div>
+        <div class="dist-val">184 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Banner ADS</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:41.9%;background:#fd746c;">6.8%</div></div>
+        <div class="dist-val">169 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">ASO In App Events</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:41.2%;background:#f6ad55;">6.7%</div></div>
+        <div class="dist-val">166 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">ASO Screenshots</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:40.2%;background:#f5576c;">6.5%</div></div>
+        <div class="dist-val">162 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">ASO Custom Product Pages</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:36.5%;background:#4facfe;">5.9%</div></div>
+        <div class="dist-val">147 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">DriveCSX</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:32.3%;background:#30cfd0;">5.3%</div></div>
+        <div class="dist-val">130.3 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">ASO Icons</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:30.8%;background:#fa709a;">5.0%</div></div>
+        <div class="dist-val">124 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Tanks Merge</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:30.2%;background:#a8edea;color:#2d6a4f;">4.9%</div></div>
+        <div class="dist-val">122 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Business Empire Tycoon</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:21.8%;background:#feb692;color:#5a3000;">3.6%</div></div>
+        <div class="dist-val">88 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Story Puzzle</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:14.0%;background:#f6d365;color:#5a3000;">2.3%</div></div>
+        <div class="dist-val">56.25 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Lazy Apocalipse</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:7.9%;background:#fda085;color:#5a3000;">1.3%</div></div>
+        <div class="dist-val">32 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">CAS Requests</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:5.9%;background:#5ee7df;color:#234e52;">1.0%</div></div>
+        <div class="dist-val">24 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Sniper Area</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:5.9%;background:#89f7fe;color:#234e52;">1.0%</div></div>
+        <div class="dist-val">24 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">OverSpace</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:4.9%;background:#b490ca;">0.8%</div></div>
+        <div class="dist-val">20 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Speed Escape - Brainrot Run</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:3.9%;background:#66a6ff;">0.6%</div></div>
+        <div class="dist-val">16 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Knockout</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:2.0%;background:#d4fc79;color:#276749;">0.3%</div></div>
+        <div class="dist-val">8 ч</div>
+      </div>
+      <div class="dist-row">
+        <div class="dist-label">Alternative Store Release</div>
+        <div class="dist-bar-wrap"><div class="dist-bar" style="width:2.0%;background:#c3cfe2;color:#4a5568;">0.3%</div></div>
+        <div class="dist-val">8 ч</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY TABLE -->
+  <div class="card">
+    <div class="section-title">Сводная таблица по проектам</div>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Проект (учётный)</th>
+          <th>Направления ART</th>
+          <th>Задач</th>
+          <th>Часов</th>
+          <th>% от итого</th>
+          <th>Доля</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge rank-1">1</span></td>
+          <td class="project-name">Brain Puzzle</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span><span class="art-pill art-anim">Anim</span></div></td>
+          <td class="tasks-count">24</td>
+          <td class="hours">403.25</td>
+          <td class="pct">16.3%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:100%;background:#43e97b;"></div></div></td>
+        </tr>
+        <tr>
+          <td><span class="badge rank-2">2</span></td>
+          <td class="project-name">Superhero Crime Open World War</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span><span class="art-pill art-3d">3D Art</span><span class="art-pill art-vfx">VFX</span><span class="art-pill art-anim">Anim</span></div></td>
+          <td class="tasks-count">14</td>
+          <td class="hours">330.0</td>
+          <td class="pct">13.3%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:81.8%;background:#667eea;"></div></div></td>
+        </tr>
+        <tr>
+          <td><span class="badge rank-3">3</span></td>
+          <td class="project-name">Traffic Asphalt</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span><span class="art-pill art-3d">3D Art</span></div></td>
+          <td class="tasks-count">4</td>
+          <td class="hours">264.0</td>
+          <td class="pct">10.7%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:65.5%;background:#764ba2;"></div></div></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td class="project-name">Custom Club</td>
+          <td><div class="art-types"><span class="art-pill art-3d">3D Art</span></div></td>
+          <td class="tasks-count">5</td>
+          <td class="hours">184.0</td>
+          <td class="pct">7.4%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:45.6%;background:#96fbc4;"></div></div></td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td class="project-name">Banner ADS</td>
+          <td><div class="art-types"><span class="art-pill art-ban">Banner</span></div></td>
+          <td class="tasks-count">23</td>
+          <td class="hours">169.0</td>
+          <td class="pct">6.8%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:41.9%;background:#fd746c;"></div></div></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td class="project-name">ASO In App Events</td>
+          <td><div class="art-types"><span class="art-pill art-aso">ASO</span></div></td>
+          <td class="tasks-count">10</td>
+          <td class="hours">166.0</td>
+          <td class="pct">6.7%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:41.2%;background:#f6ad55;"></div></div></td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td class="project-name">ASO Screenshots</td>
+          <td><div class="art-types"><span class="art-pill art-aso">ASO</span></div></td>
+          <td class="tasks-count">8</td>
+          <td class="hours">162.0</td>
+          <td class="pct">6.5%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:40.2%;background:#f5576c;"></div></div></td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td class="project-name">ASO Custom Product Pages</td>
+          <td><div class="art-types"><span class="art-pill art-aso">ASO</span></div></td>
+          <td class="tasks-count">17</td>
+          <td class="hours">147.0</td>
+          <td class="pct">5.9%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:36.5%;background:#4facfe;"></div></div></td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td class="project-name">DriveCSX</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span><span class="art-pill art-3d">3D Art</span></div></td>
+          <td class="tasks-count">11</td>
+          <td class="hours">130.3</td>
+          <td class="pct">5.3%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:32.3%;background:#30cfd0;"></div></div></td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td class="project-name">ASO Icons</td>
+          <td><div class="art-types"><span class="art-pill art-aso">ASO</span></div></td>
+          <td class="tasks-count">12</td>
+          <td class="hours">124.0</td>
+          <td class="pct">5.0%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:30.8%;background:#fa709a;"></div></div></td>
+        </tr>
+        <tr>
+          <td>11</td>
+          <td class="project-name">Tanks Merge</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span></div></td>
+          <td class="tasks-count">5</td>
+          <td class="hours">122.0</td>
+          <td class="pct">4.9%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:30.2%;background:#a8edea;"></div></div></td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td class="project-name">Business Empire Tycoon</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span><span class="art-pill art-anim">Anim</span></div></td>
+          <td class="tasks-count">6</td>
+          <td class="hours">88.0</td>
+          <td class="pct">3.6%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:21.8%;background:#feb692;"></div></div></td>
+        </tr>
+        <tr>
+          <td>13</td>
+          <td class="project-name">Story Puzzle</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span><span class="art-pill art-anim">Anim</span></div></td>
+          <td class="tasks-count">2</td>
+          <td class="hours">56.25</td>
+          <td class="pct">2.3%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:14.0%;background:#f6d365;"></div></div></td>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td class="project-name">Lazy Apocalipse</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span></div></td>
+          <td class="tasks-count">3</td>
+          <td class="hours">32.0</td>
+          <td class="pct">1.3%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:7.9%;background:#fda085;"></div></div></td>
+        </tr>
+        <tr>
+          <td>15</td>
+          <td class="project-name">CAS Requests</td>
+          <td><div class="art-types"><span class="art-pill art-cas">CAS</span></div></td>
+          <td class="tasks-count">3</td>
+          <td class="hours">24.0</td>
+          <td class="pct">1.0%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:5.9%;background:#5ee7df;"></div></div></td>
+        </tr>
+        <tr>
+          <td>16</td>
+          <td class="project-name">Sniper Area</td>
+          <td><div class="art-types"><span class="art-pill art-3d">3D Art</span><span class="art-pill art-vfx">VFX</span></div></td>
+          <td class="tasks-count">2</td>
+          <td class="hours">24.0</td>
+          <td class="pct">1.0%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:5.9%;background:#89f7fe;"></div></div></td>
+        </tr>
+        <tr>
+          <td>17</td>
+          <td class="project-name">OverSpace</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span></div></td>
+          <td class="tasks-count">2</td>
+          <td class="hours">20.0</td>
+          <td class="pct">0.8%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:4.9%;background:#b490ca;"></div></div></td>
+        </tr>
+        <tr>
+          <td>18</td>
+          <td class="project-name">Speed Escape - Brainrot Run</td>
+          <td><div class="art-types"><span class="art-pill art-3d">3D Art</span></div></td>
+          <td class="tasks-count">1</td>
+          <td class="hours">16.0</td>
+          <td class="pct">0.6%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:3.9%;background:#66a6ff;"></div></div></td>
+        </tr>
+        <tr>
+          <td>19</td>
+          <td class="project-name">Knockout</td>
+          <td><div class="art-types"><span class="art-pill art-aso">ASO</span></div></td>
+          <td class="tasks-count">1</td>
+          <td class="hours">8.0</td>
+          <td class="pct">0.3%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:2.0%;background:#d4fc79;"></div></div></td>
+        </tr>
+        <tr>
+          <td>20</td>
+          <td class="project-name">Alternative Store Release</td>
+          <td><div class="art-types"><span class="art-pill art-2d">2D Art</span></div></td>
+          <td class="tasks-count">1</td>
+          <td class="hours">8.0</td>
+          <td class="pct">0.3%</td>
+          <td><div class="bar-wrap"><div class="bar" style="width:2.0%;background:#c3cfe2;"></div></div></td>
+        </tr>
+        <tr class="total-row">
+          <td colspan="3"><strong>ИТОГО</strong></td>
+          <td class="tasks-count"><strong>154</strong></td>
+          <td class="hours">2 477.8</td>
+          <td class="pct">100%</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- DETAIL TABLES -->
+  <div class="card">
+    <div class="section-title">Детализация задач по проектам</div>
+
+    <!-- Brain Puzzle -->
+    <details>
+      <summary>Brain Puzzle &nbsp;<span style="color:#718096;font-weight:400;">403.25 ч — 16.3% — 24 задачи</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td>[2D ART] Level 1 (25)</td><td><span class="art-pill art-2d">2D Art</span></td><td>Tetiana Bielousova</td><td>21.0</td></tr>
+            <tr><td>[2D ART] Level 2 (26)</td><td><span class="art-pill art-2d">2D Art</span></td><td>Olena Bishko</td><td>12.0</td></tr>
+            <tr><td>[2D ART] Level 3 (27)</td><td><span class="art-pill art-2d">2D Art</span></td><td>Kateryna Svyrydova</td><td>19.0</td></tr>
+            <tr><td>[2D ART] Level 5 (29)</td><td><span class="art-pill art-2d">2D Art</span></td><td>Olena Bishko</td><td>21.0</td></tr>
+            <tr><td>[2D ART] Level 6 (30)</td><td><span class="art-pill art-2d">2D Art</span></td><td>Kateryna Svyrydova</td><td>16.0</td></tr>
+            <tr><td>[2D ART] Level 16</td><td><span class="art-pill art-2d">2D Art</span></td><td>Tetiana Bielousova</td><td>9.5</td></tr>
+            <tr><td>[2D ART] Level 17</td><td><span class="art-pill art-2d">2D Art</span></td><td>Olena Bishko</td><td>14.0</td></tr>
+            <tr><td>[2D ART] Level 18</td><td><span class="art-pill art-2d">2D Art</span></td><td>Kateryna Svyrydova</td><td>24.0</td></tr>
+            <tr><td>[2D ART] Level 19</td><td><span class="art-pill art-2d">2D Art</span></td><td>Tetiana Bielousova</td><td>13.0</td></tr>
+            <tr><td>[2D ART] Level 20</td><td><span class="art-pill art-2d">2D Art</span></td><td>Olena Bishko</td><td>14.0</td></tr>
+            <tr><td>[2D ART] Level 21</td><td><span class="art-pill art-2d">2D Art</span></td><td>Kateryna Svyrydova</td><td>16.0</td></tr>
+            <tr><td>[2D ART] Level 22</td><td><span class="art-pill art-2d">2D Art</span></td><td>Tetiana Bielousova</td><td>16.0</td></tr>
+            <tr><td>[2D ART] Level 23</td><td><span class="art-pill art-2d">2D Art</span></td><td>Olena Bishko</td><td>12.0</td></tr>
+            <tr><td>[2D ART] Level 24</td><td><span class="art-pill art-2d">2D Art</span></td><td>Kateryna Svyrydova</td><td>18.0</td></tr>
+            <tr><td>[2D ART] UI Магазина</td><td><span class="art-pill art-2d">2D Art</span></td><td>Viktoriia Bahlai</td><td>24.0</td></tr>
+            <tr><td>[2D ART] UI Подписки</td><td><span class="art-pill art-2d">2D Art</span></td><td>Viktoriia Bahlai</td><td>20.0</td></tr>
+            <tr><td>[2D ART] Правка вин скрина</td><td><span class="art-pill art-2d">2D Art</span></td><td>Viktoriia Bahlai</td><td>4.0</td></tr>
+            <tr><td>[2D ART] Подписка No Ads для Амазон</td><td><span class="art-pill art-2d">2D Art</span></td><td>Viktoriia Bahlai</td><td>16.0</td></tr>
+            <tr><td>[2D ART] Правки в добавленных уровнях</td><td><span class="art-pill art-2d">2D Art</span></td><td>Tetiana Bielousova</td><td>5.5</td></tr>
+            <tr><td>[2D ART] No Internet pop-up</td><td><span class="art-pill art-2d">2D Art</span></td><td>Viktoriia Bahlai</td><td>0.25</td></tr>
+            <tr><td>[ANIM ART] Анимации для 6 новых уровней</td><td><span class="art-pill art-anim">Anim</span></td><td>Denis Kitsa</td><td>52.0</td></tr>
+            <tr><td>[ANIM ART] Правки анимаций на переделанных уровнях</td><td><span class="art-pill art-anim">Anim</span></td><td>Denis Kitsa</td><td>40.0</td></tr>
+            <tr><td>[ANIM ART] Анимация для экрана загрузки</td><td><span class="art-pill art-anim">Anim</span></td><td>Denis Kitsa</td><td>8.0</td></tr>
+            <tr><td>[ANIM ART] Уровни 11-15</td><td><span class="art-pill art-anim">Anim</span></td><td>Vadym Flinta</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Brain Puzzle</strong></td><td><strong>403.25 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Superhero Crime -->
+    <details>
+      <summary>Superhero Crime Open World War &nbsp;<span style="color:#718096;font-weight:400;">330 ч — 13.3% — 14 задач</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1215000158102419">​[2D ART] Промо поп-ап открытия героев</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Viktoriia Bahlai</td><td>16.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214767508422001">[2D ART] Обновить иконки топ-бара</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>8.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214604092638709">[2D ART] Портреты для скинов — Капитан Америка</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>4.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214604092638710">[3D ART] Модель и рескины — Капитан Америка</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Vadym Flinta</td><td>88.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1215047568121701">[3D ART] Модель героя Venom</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Denys Zapadenko</td><td>40.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214295631619783">[3D ART] Дополнительная модель кота для миссии</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Volodymyr Demchenko</td><td>12.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214295631619771">[3D ART] Купол для боя с Халком</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Dmytro Anisimov</td><td>2.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214604092638712">[VFX ART] Эффекты — Капитан Америка</a></td><td><span class="art-pill art-vfx">VFX</span></td><td>Vadym Flinta</td><td>16.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214604092638711">[ANIM ART] Анимации — полёт скиллы — Капитан Америка</a></td><td><span class="art-pill art-anim">Anim</span></td><td>Volodymyr Demchenko</td><td>24.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214680703152838">[ANIM ART] Кат-сцена на разминирование бомбы</a></td><td><span class="art-pill art-anim">Anim</span></td><td>—</td><td>12.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214597751161713">[ANIM ART] Fix Spider Man Rig</a></td><td><span class="art-pill art-anim">Anim</span></td><td>Dmytro Anisimov</td><td>8.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214295400877341">[ANIM ART] Анимации для новых врагов/боссов</a></td><td><span class="art-pill art-anim">Anim</span></td><td>Volodymyr Demchenko</td><td>80.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214295400877346">[ANIM ART] Анимация запрыгивания кота</a></td><td><span class="art-pill art-anim">Anim</span></td><td>Volodymyr Demchenko</td><td>4.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1215047568121689">[ANIM ART] Кат-сцены миссии с погоней за машиной (2 шт.)</a></td><td><span class="art-pill art-anim">Anim</span></td><td>Volodymyr Demchenko</td><td>16.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Superhero Crime</strong></td><td><strong>330.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Traffic Asphalt -->
+    <details>
+      <summary>Traffic Asphalt &nbsp;<span style="color:#718096;font-weight:400;">264 ч — 10.7% — 4 задачи</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214086178607378">[2D ART] Препродакшн RACING</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Anna Hrabko</td><td>8.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214600124111635">[3D ART] RnD девелопмент</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Dmytro Anisimov</td><td>160.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214490030058220">[3D ART] Home Scene</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Denys Zapadenko</td><td>40.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214446177442544">[3D ART] Пропси для Asphalt Traffic</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Vadym Flinta</td><td>56.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Traffic Asphalt</strong></td><td><strong>264.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Custom Club -->
+    <details>
+      <summary>Custom Club &nbsp;<span style="color:#718096;font-weight:400;">184 ч — 7.4% — 5 задач</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1215046602355920">[3D ART] Полишинг материалов, добавление неона + мелкие пропсы чанк 3</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Valentina Romashchenko</td><td>40.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214837931624278">[3D ART] Донастройка материалов (чанк 3), фикс текстур (чанк 1)</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Valentina Romashchenko</td><td>40.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214600124111649">[3D ART] Scene assembly (support)</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Oleksandr Hrazhdan</td><td>32.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214600124111647">[3D ART] Супорт</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Valentina Romashchenko</td><td>32.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214445642684670">[3D ART] Фікси моделей і оточення після рефакторингу</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Oleksandr Hrazhdan</td><td>40.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Custom Club</strong></td><td><strong>184.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Banner ADS -->
+    <details>
+      <summary>Banner ADS &nbsp;<span style="color:#718096;font-weight:400;">169 ч — 6.8% — 23 задачи</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td>Art management May</td><td><span class="art-pill art-ban">Banner</span></td><td>—</td><td>32.0</td></tr>
+            <tr><td>В019 Hippo Supermarket</td><td><span class="art-pill art-ban">Banner</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>Banner задача (×19 задач)</td><td><span class="art-pill art-ban">Banner</span></td><td>—</td><td>129.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Banner ADS</strong></td><td><strong>169.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- ASO In App Events -->
+    <details>
+      <summary>ASO In App Events &nbsp;<span style="color:#718096;font-weight:400;">166 ч — 6.7% — 10 задач</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td>Ninja Sword — Events Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>24.0</td></tr>
+            <tr><td>Superhero Crime — Events Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>24.0</td></tr>
+            <tr><td>Overspace — Events Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>20.0</td></tr>
+            <tr><td>Age of Heroes — Events Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>20.0</td></tr>
+            <tr><td>DriveCSX — Events Task (New Content)</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>18.0</td></tr>
+            <tr><td>Green Sandbox — Event task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>16.0</td></tr>
+            <tr><td>Custom Club: Online Racing 3D — Events Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>16.0</td></tr>
+            <tr><td>Cyber Sandbox — Events Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>12.0</td></tr>
+            <tr><td>Race Survival Arena King — Events Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>Art management May</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого ASO In App Events</strong></td><td><strong>166.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- ASO Screenshots -->
+    <details>
+      <summary>ASO Screenshots &nbsp;<span style="color:#718096;font-weight:400;">162 ч — 6.5% — 8 задач</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td>Supermarket: Shopping Games — Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>40.0</td></tr>
+            <tr><td>Hello Kitty: Beauty Salon — Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>24.0</td></tr>
+            <tr><td>Green Sandbox Ragdoll — Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>24.0</td></tr>
+            <tr><td>Cart Ride Obby — Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>24.0</td></tr>
+            <tr><td>Race Survival Arena King — Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>20.0</td></tr>
+            <tr><td>Custom Club — Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>14.0</td></tr>
+            <tr><td>Cart Ride Obby (11585) — Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>Art management May</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого ASO Screenshots</strong></td><td><strong>162.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- ASO CPP -->
+    <details>
+      <summary>ASO Custom Product Pages &nbsp;<span style="color:#718096;font-weight:400;">147 ч — 5.9% — 17 задач</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td>(v338) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>16.0</td></tr>
+            <tr><td>(v591) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>10.0</td></tr>
+            <tr><td>(v2_3) RichLife — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>12.0</td></tr>
+            <tr><td>(v009) RichLife — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>12.0</td></tr>
+            <tr><td>(v315) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>9.0</td></tr>
+            <tr><td>(v629) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>9.0</td></tr>
+            <tr><td>(v672) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>9.0</td></tr>
+            <tr><td>(v487) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>(v628) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>(v313) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>(v456) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>(v637) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>(v123) Sniper Area — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>(V006) Car Crash Royale — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>(v001) Superhero Crime — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>6.0</td></tr>
+            <tr><td>(v003) Superhero Crime — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>4.0</td></tr>
+            <tr><td>(v010) Superhero Crime — CPP Screenshots Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>4.0</td></tr>
+            <tr><td>Art management May</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого ASO CPP</strong></td><td><strong>147.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- DriveCSX -->
+    <details>
+      <summary>DriveCSX &nbsp;<span style="color:#718096;font-weight:400;">130.3 ч — 5.3% — 11 задач</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214294622540713">[3D ART] Правки развёрток новых авто и создание масок грязи</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Kateryna Ivanenko</td><td>48.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214569590454983">[3D ART] Подготовить транспорт для Battle Pass</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Igor Kuznetsov</td><td>16.9</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214569590454994">[3D ART] Провести ресёрч и подготовить скоуп задач</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Igor Kuznetsov</td><td>14.6</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214771034184224">[3D ART] &lt;DriveCSX&gt;: &lt;0.97&gt;: &lt;Правки нового транспорта&gt;</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Igor Kuznetsov</td><td>9.8</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214528310101401">[3D ART] [BUG] У самосвала справа номер отзеркален</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Igor Kuznetsov</td><td>8.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214447480877093">[3D ART] [BUG] текст и наклейки отзеркаливаются</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Igor Kuznetsov</td><td>8.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214528310101418">[3D ART] [BUG] Сломан дефолтный цвет банана</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Igor Kuznetsov</td><td>8.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1215008500380755">[2D ART] &lt;DriveCSX&gt;: &lt;0.98&gt;: &lt;Soft Currency + Result Screen&gt;</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>8.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214447480877111">[3D ART] [BUG] кузов красится только в такси</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Igor Kuznetsov</td><td>4.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214519898303205">[3D ART] [BUG] MadMax truck: сломано авто</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Igor Kuznetsov</td><td>4.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214600342998846">[3D ART] [BUG] Нет партиклов на финише</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Igor Kuznetsov</td><td>1.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого DriveCSX</strong></td><td><strong>130.3 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- ASO Icons -->
+    <details>
+      <summary>ASO Icons &nbsp;<span style="color:#718096;font-weight:400;">124 ч — 5.0% — 12 задач</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td>Supermarket: Shopping Games — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>16.0</td></tr>
+            <tr><td>BLOCKFIELD — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>16.0</td></tr>
+            <tr><td>Race in Car — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>12.0</td></tr>
+            <tr><td>Simple Sandbox 3 — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>12.0</td></tr>
+            <tr><td>Race Survival Arena King — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>12.0</td></tr>
+            <tr><td>Hello Kitty: Beauty Salon — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>Green Sandbox Ragdoll — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>Cart Ride Obby — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>Cyber Sandbox — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>Superhero Crime Open World War — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>Custom Club — Icon Task</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr><td>Art management May</td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого ASO Icons</strong></td><td><strong>124.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Tanks Merge -->
+    <details>
+      <summary>Tanks Merge &nbsp;<span style="color:#718096;font-weight:400;">122 ч — 4.9% — 5 задач</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214445614198912">[2D ART] Новые боссы и мини-боссы</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Anna Hrabko</td><td>56.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214445903835678">[2D ART] Юниты для локаций: Джунгли, Пустыня, Вулкан</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Tetiana Bielousova</td><td>38.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1215000206010440">[2D ART] Vip Bundle — окно, иконка</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Anna Hrabko</td><td>12.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1215000206010446">[2D ART] Idle Pack / АФК набор</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Anna Hrabko</td><td>12.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214353225186846">[2D ART] Устранить артефакты на бэках с параллаксом</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>—</td><td>4.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Tanks Merge</strong></td><td><strong>122.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Business Empire -->
+    <details>
+      <summary>Business Empire Tycoon &nbsp;<span style="color:#718096;font-weight:400;">88 ч — 3.6% — 6 задач</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214120647487866">[2D ART] Daily Bonus</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>24.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214417306328985">[2D ART] Shop</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>16.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214120647487863">[2D ART] Polymarket</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>16.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214697236706510">[ANIM ART] Business Empire Tycoon 1.4.0</a></td><td><span class="art-pill art-anim">Anim</span></td><td>Denis Kitsa</td><td>16.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214417306328988">[2D ART] Tickets Popup</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>8.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214837662323583">[2D ART] Offline Income Popup</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Viktoriia Bahlai</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Business Empire Tycoon</strong></td><td><strong>88.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Story Puzzle -->
+    <details>
+      <summary>Story Puzzle &nbsp;<span style="color:#718096;font-weight:400;">56.25 ч — 2.3% — 2 задачи</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1213830747576402">[ANIM ART] Story 3</a></td><td><span class="art-pill art-anim">Anim</span></td><td>Denis Kitsa</td><td>56.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214677919429858">[2D ART] Обновить лоадинг скрин для сторис</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olena Bishko</td><td>0.25</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Story Puzzle</strong></td><td><strong>56.25 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Lazy Apocalipse -->
+    <details>
+      <summary>Lazy Apocalipse &nbsp;<span style="color:#718096;font-weight:400;">32 ч — 1.3% — 3 задачи</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214494085804493">[2D ART] 1+2 Offer Art</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>16.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214494085804498">[2D ART] Chain offer art</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>8.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214494085804502">[2D ART] 30d NoAds Offer Art</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Lazy Apocalipse</strong></td><td><strong>32.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- CAS Requests -->
+    <details>
+      <summary>CAS Requests &nbsp;<span style="color:#718096;font-weight:400;">24 ч — 1.0% — 3 задачи</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td>блок Recent Payments на Home page</td><td><span class="art-pill art-cas">CAS</span></td><td>Olha Minko</td><td>16.0</td></tr>
+            <tr><td>Редизайн хедеру</td><td><span class="art-pill art-cas">CAS</span></td><td>Olha Minko</td><td>4.0</td></tr>
+            <tr><td>Потенційний дохід</td><td><span class="art-pill art-cas">CAS</span></td><td>Olha Minko</td><td>4.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого CAS Requests</strong></td><td><strong>24.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Sniper Area -->
+    <details>
+      <summary>Sniper Area &nbsp;<span style="color:#718096;font-weight:400;">24 ч — 1.0% — 2 задачи</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214174396436807">[3D ART] Base Construction (Location)</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Volodymyr Demchenko</td><td>16.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214174396436809">[VFX ART] Base Construction (VFX)</a></td><td><span class="art-pill art-vfx">VFX</span></td><td>Volodymyr Demchenko</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Sniper Area</strong></td><td><strong>24.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- OverSpace -->
+    <details>
+      <summary>OverSpace &nbsp;<span style="color:#718096;font-weight:400;">20 ч — 0.8% — 2 задачи</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214929984816419">[2D ART] Увеличение скорости игры на х1.5</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>12.0</td></tr>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214929984816400">[2D ART] Revive Pop-up</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>Olha Minko</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого OverSpace</strong></td><td><strong>20.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Speed Escape -->
+    <details>
+      <summary>Speed Escape - Brainrot Run &nbsp;<span style="color:#718096;font-weight:400;">16 ч — 0.6% — 1 задача</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1213830408720787">[3D ART] Візуальна диференціація локації під час 3 спеціальних подій</a></td><td><span class="art-pill art-3d">3D Art</span></td><td>Valentina Romashchenko</td><td>16.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Speed Escape</strong></td><td><strong>16.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Knockout -->
+    <details>
+      <summary>Knockout &nbsp;<span style="color:#718096;font-weight:400;">8 ч — 0.3% — 1 задача</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214124943229386">Knockout — ASO (Icons + Screenshots + Events)</a></td><td><span class="art-pill art-aso">ASO</span></td><td>—</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Knockout</strong></td><td><strong>8.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Alternative Store Release -->
+    <details>
+      <summary>Alternative Store Release &nbsp;<span style="color:#718096;font-weight:400;">8 ч — 0.3% — 1 задача</span></summary>
+      <div class="detail-content">
+        <table class="detail-table">
+          <thead><tr><th>Задача</th><th>Направление</th><th>Исполнитель</th><th>Часов</th></tr></thead>
+          <tbody>
+            <tr><td><a class="task-link" href="https://app.asana.com/0/0/1214418704232949">[2D ART] Controls Screen Menu</a></td><td><span class="art-pill art-2d">2D Art</span></td><td>—</td><td>8.0</td></tr>
+            <tr class="total-row"><td colspan="3"><strong>Итого Alternative Store Release</strong></td><td><strong>8.0 ч</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div style="text-align:center;color:#a0aec0;font-size:12px;padding:16px 0 32px;">
+    Отчёт сформирован: 10.06.2026 &nbsp;|&nbsp; Данные: Asana ART Portfolio &nbsp;|&nbsp; Период: 01.05.2026 — 31.05.2026
+  </div>
+
+</div>
+</body>
+</html>
