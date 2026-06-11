@@ -118,15 +118,77 @@ foreach ($gid in @($allTasks.Keys)) {
 }
 Write-Host "Tasks with tracked time in period: $($taskMinutes.Count)"
 
+# ============================================================
+# STEP 2.5 - Art Team members + their tasks outside ART portfolio
+# ============================================================
+$TEAM_GID = "1213453988877387"
+$WS_GID   = "1210983682540893"
+$externalGids = @{}
+$teamMembers  = @{}
+Write-Host "`n[2.5] Fetching Art Team members and external tasks..."
+try {
+    $resp = Invoke-RestMethod "$apiBase/teams/$TEAM_GID/users?opt_fields=name&limit=100" -Headers $headers
+    foreach ($u in $resp.data) { $teamMembers[$u.gid] = $u.name }
+} catch { Write-Host "  ERROR fetching team members: $_" }
+Write-Host "  Team members: $($teamMembers.Count)"
+
+$candidates = @{}
+foreach ($uGid in $teamMembers.Keys) {
+    $url = "$apiBase/workspaces/$WS_GID/tasks/search?assignee.any=$uGid&modified_on.after=$Start&opt_fields=gid,name,assignee.name,memberships.project.gid,memberships.project.name,permalink_url&limit=100"
+    try { $resp = Invoke-RestMethod $url -Headers $headers } catch { Write-Host "  search failed for $($teamMembers[$uGid]): $_"; continue }
+    foreach ($task in $resp.data) {
+        if ($allTasks.ContainsKey($task.gid) -or $candidates.ContainsKey($task.gid)) { continue }
+        $mems = @()
+        if ($task.memberships) {
+            foreach ($m in $task.memberships) {
+                if ($m.PSObject.Properties['project'] -and $m.project -and $m.project.gid) {
+                    $mems += @{ gid=[string]$m.project.gid; name=[string]$m.project.name }
+                }
+            }
+        }
+        $candidates[$task.gid] = @{
+            name          = $task.name
+            assignee      = if ($task.PSObject.Properties['assignee'] -and $task.assignee -and $task.assignee.name) { $task.assignee.name } else { $teamMembers[$uGid] }
+            permalink_url = if ($task.PSObject.Properties['permalink_url']) { $task.permalink_url } else { "" }
+            memberships   = $mems
+        }
+    }
+}
+Write-Host "  External candidate tasks: $($candidates.Count)"
+
+$j = 0
+foreach ($gid in @($candidates.Keys)) {
+    $j++
+    if ($j % 50 -eq 0) { Write-Host "  [$j / $($candidates.Count)]..." }
+    try {
+        $url  = "$apiBase/tasks/$gid/time_tracking_entries?opt_fields=duration_minutes,entered_on&limit=100"
+        $resp = Invoke-RestMethod $url -Headers $headers
+        $tot  = 0
+        foreach ($e in $resp.data) {
+            if ($e.entered_on -and $e.entered_on -ge $Start -and $e.entered_on -le $End) {
+                $tot += [int]$e.duration_minutes
+            }
+        }
+        if ($tot -gt 0) {
+            $allTasks[$gid]     = $candidates[$gid]
+            $taskMinutes[$gid]  = $tot
+            $externalGids[$gid] = $true
+        }
+    } catch {}
+}
+Write-Host "  External tasks with tracked time in period: $($externalGids.Count)"
+
 # Attribute tasks to projects
 Write-Host "[3/3] Attributing and saving JSON..."
 $processed = @{}
 foreach ($gid in $taskMinutes.Keys) {
     $task = $allTasks[$gid]
+    $isExt = $externalGids.ContainsKey($gid)
     $artDir = "Unknown"
     foreach ($m in $task.memberships) {
         if ($ART_DIRECTION.ContainsKey($m.gid)) { $artDir = $ART_DIRECTION[$m.gid]; break }
     }
+    if ($isExt) { $artDir = "External" }
     $attrProject = $null
     foreach ($m in $task.memberships) {
         if (-not $ART_GID_SET.ContainsKey($m.gid)) { $attrProject = $m.name; break }
@@ -136,7 +198,7 @@ foreach ($gid in $taskMinutes.Keys) {
             if ($ART_GID_SET.ContainsKey($m.gid)) { $attrProject = $m.name; break }
         }
     }
-    if (-not $attrProject) { $attrProject = "Unknown" }
+    if (-not $attrProject) { $attrProject = if ($isExt) { "No project" } else { "Unknown" } }
 
     $processed[$gid] = @{
         name               = $task.name
@@ -144,6 +206,7 @@ foreach ($gid in $taskMinutes.Keys) {
         permalink_url      = $task.permalink_url
         art_direction      = $artDir
         attributed_project = $attrProject
+        external           = $isExt
         minutes            = $taskMinutes[$gid]
         hours              = [math]::Round($taskMinutes[$gid] / 60, 2)
     }
@@ -167,6 +230,7 @@ foreach ($prop in $dataObj.PSObject.Properties) {
         permalink_url      = [string]$t.permalink_url
         art_direction      = [string]$t.art_direction
         attributed_project = [string]$t.attributed_project
+        external           = [bool]$t.external
         hours              = [double]$t.hours
     }
 }
@@ -190,6 +254,7 @@ function Art-Pill([string]$dir) {
         'ASO In App Events' { '<span class="art-pill art-aso">ASO Events</span>' }
         'Banner ADS'        { '<span class="art-pill art-ban">Banner</span>' }
         'CAS Requests'      { '<span class="art-pill art-cas">CAS</span>' }
+        'External'          { '<span class="art-pill" style="background:#edf2f7;color:#718096;">&#1042;&#1085;&#1077; ART</span>' }
         default             { '<span class="art-pill">' + (Esc $dir) + '</span>' }
     }
 }
@@ -206,14 +271,16 @@ foreach ($gid in $tasks2.Keys) {
     $proj = Clean-Project $t.attributed_project
     $dir  = $t.art_direction
     $who  = $t.assignee
-    if (-not $byProject.ContainsKey($proj)) {
-        $byProject[$proj] = @{ tasks=[System.Collections.Generic.List[object]]::new(); hours=0.0; dirs=@{} }
+    if (-not $t.external) {
+        if (-not $byProject.ContainsKey($proj)) {
+            $byProject[$proj] = @{ tasks=[System.Collections.Generic.List[object]]::new(); hours=0.0; dirs=@{} }
+        }
+        $byProject[$proj].tasks.Add(@{gid=$gid;name=$t.name;assignee=$t.assignee;url=$t.permalink_url;dir=$dir;hours=$t.hours})
+        $byProject[$proj].hours += $t.hours
+        $byProject[$proj].dirs[$dir] = 1
+        if (-not $byDirection.ContainsKey($dir)) { $byDirection[$dir] = 0.0 }
+        $byDirection[$dir] += $t.hours
     }
-    $byProject[$proj].tasks.Add(@{gid=$gid;name=$t.name;assignee=$t.assignee;url=$t.permalink_url;dir=$dir;hours=$t.hours})
-    $byProject[$proj].hours += $t.hours
-    $byProject[$proj].dirs[$dir] = 1
-    if (-not $byDirection.ContainsKey($dir)) { $byDirection[$dir] = 0.0 }
-    $byDirection[$dir] += $t.hours
     if (-not $byAssignee.ContainsKey($who)) {
         $byAssignee[$who] = @{ tasks=[System.Collections.Generic.List[object]]::new(); hours=0.0 }
     }
@@ -222,8 +289,12 @@ foreach ($gid in $tasks2.Keys) {
 }
 
 $totalH    = 0.0
-foreach ($g in $tasks2.Keys) { $totalH += $tasks2[$g].hours }
-$totalT    = $tasks2.Count
+$totalT    = 0
+foreach ($g in $tasks2.Keys) {
+    if (-not $tasks2[$g].external) { $totalH += $tasks2[$g].hours; $totalT++ }
+}
+$empTotalH = 0.0
+foreach ($v in $byAssignee.Values) { $empTotalH += $v.hours }
 $totalP    = $byProject.Count
 $totalD    = $byDirection.Count
 $totalHInt = [math]::Round($totalH)
@@ -408,13 +479,15 @@ foreach ($kv in $sortedProj) {
 }
 [void]$L.Add('</div>')
 
-# Artists section
+# Employees section (Art Team)
 [void]$L.Add('<div class="card">')
-[void]$L.Add('  <div class="section-title">&#1056;&#1072;&#1089;&#1087;&#1088;&#1077;&#1076;&#1077;&#1083;&#1077;&#1085;&#1080;&#1077; &#1088;&#1072;&#1073;&#1086;&#1090; &#1087;&#1086; &#1093;&#1091;&#1076;&#1086;&#1078;&#1085;&#1080;&#1082;&#1072;&#1084;</div>')
+[void]$L.Add('  <div class="section-title">&#1056;&#1072;&#1089;&#1087;&#1088;&#1077;&#1076;&#1077;&#1083;&#1077;&#1085;&#1080;&#1077; &#1088;&#1072;&#1073;&#1086;&#1090; &#1087;&#1086; &#1089;&#1086;&#1090;&#1088;&#1091;&#1076;&#1085;&#1080;&#1082;&#1072;&#1084;</div>')
+[void]$L.Add('  <div style="font-size:12px;color:#718096;margin-bottom:12px;">&#1048;&#1089;&#1090;&#1086;&#1095;&#1085;&#1080;&#1082; &#1089;&#1087;&#1080;&#1089;&#1082;&#1072; &#1089;&#1086;&#1090;&#1088;&#1091;&#1076;&#1085;&#1080;&#1082;&#1086;&#1074; &#8212; &#1082;&#1086;&#1084;&#1072;&#1085;&#1076;&#1072; Art Team. &#1059;&#1095;&#1090;&#1077;&#1085;&#1099; &#1079;&#1072;&#1076;&#1072;&#1095;&#1080; &#1074;&#1085;&#1077; ART-&#1087;&#1086;&#1088;&#1090;&#1092;&#1077;&#1083;&#1103; (&#1089;&#1077;&#1088;&#1099;&#1077; &#1084;&#1077;&#1090;&#1082;&#1080; &#171;&#1042;&#1085;&#1077; ART&#187;).</div>')
 foreach ($kv in $sortedAssignees) {
+    if ($kv.Key -eq 'Unassigned') { continue }
     $ah     = $kv.Value.hours
     $atasks = $kv.Value.tasks.Count
-    $apct   = [math]::Round($ah / $totalH * 100, 1)
+    $apct   = if ($empTotalH -gt 0) { [math]::Round($ah / $empTotalH * 100, 1) } else { 0 }
     $ahd    = Fmt $ah
     [void]$L.Add('  <details>')
     [void]$L.Add('    <summary>' + (Esc $kv.Key) + '&nbsp;&nbsp;<span class="artist-stat">' + $ahd + ' &#1095; &mdash; ' + $apct + '% &mdash; ' + $atasks + ' &#1079;&#1072;&#1076;&#1072;&#1095;</span></summary>')
@@ -428,6 +501,18 @@ foreach ($kv in $sortedAssignees) {
     [void]$L.Add('        <tr class="total-row"><td colspan="3">&#1048;&#1090;&#1086;&#1075;&#1086;: ' + (Esc $kv.Key) + '</td><td>' + $ahd + '</td><td>100%</td></tr>')
     [void]$L.Add('      </tbody></table></div>')
     [void]$L.Add('  </details>')
+}
+# Team members with no tracked time in period
+if ($teamMembers -and $teamMembers.Count -gt 0) {
+    $inactive = @($teamMembers.Values | Where-Object { -not $byAssignee.ContainsKey($_) } | Sort-Object)
+    if ($inactive.Count -gt 0) {
+        [void]$L.Add('  <div style="margin-top:14px;font-size:12px;color:#718096;">&#1041;&#1077;&#1079; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1072; &#1074; &#1087;&#1077;&#1088;&#1080;&#1086;&#1076;&#1077;:</div>')
+        [void]$L.Add('  <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">')
+        foreach ($nm in $inactive) {
+            [void]$L.Add('    <span style="background:#edf2f7;color:#718096;padding:2px 10px;border-radius:10px;font-size:12px;">' + (Esc $nm) + '</span>')
+        }
+        [void]$L.Add('  </div>')
+    }
 }
 [void]$L.Add('</div>')
 
