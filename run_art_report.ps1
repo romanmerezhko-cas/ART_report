@@ -431,6 +431,165 @@ foreach ($kv in $sortedAssignees) {
 }
 [void]$L.Add('</div>')
 
+# ============================================================
+# COMPARISON SECTION (vs previous month)
+# ============================================================
+$prevData2 = $null; $prevPeriodLbl = $null
+try {
+    $pd0 = [datetime]::ParseExact($Start, 'yyyy-MM-dd', $null).AddMonths(-1)
+    $prevKey0 = $pd0.ToString('yyyy-MM')
+    $prevJson0 = "$BASE\time_data_$prevKey0.json"
+    if (Test-Path $prevJson0) {
+        $prevData2 = Get-Content $prevJson0 -Raw -Encoding utf8 | ConvertFrom-Json
+        $mn0 = @('January','February','March','April','May','June','July','August','September','October','November','December')
+        $prevPeriodLbl = "$($mn0[$pd0.Month-1]) $($pd0.Year)"
+    }
+} catch {}
+
+if ($prevData2 -and $prevPeriodLbl) {
+    function DSN([double]$v) { if ($v -ge 0) { '+' } else { '' } }
+    function DCol([double]$v,[bool]$inv=$false) {
+        $pos = if ($inv) { $v -le 0 } else { $v -ge 0 }
+        if ($pos) { '#38a169' } else { '#e53e3e' }
+    }
+
+    # Build per-person stats for prev month (skip Unassigned)
+    $prevPP = @{}
+    foreach ($prop0 in $prevData2.PSObject.Properties) {
+        $t0 = $prop0.Value; $who0 = [string]$t0.assignee
+        if ($who0 -eq 'Unassigned') { continue }
+        if (-not $prevPP[$who0]) { $prevPP[$who0] = @{tasks=0;hours=0.0} }
+        $prevPP[$who0].tasks++
+        $prevPP[$who0].hours += [double]$t0.hours
+    }
+
+    # Build per-person stats for current month (reuse $byAssignee)
+    $currPP = @{}
+    foreach ($kv0 in $byAssignee.GetEnumerator()) {
+        if ($kv0.Key -eq 'Unassigned') { continue }
+        $currPP[$kv0.Key] = @{tasks=$kv0.Value.tasks.Count; hours=$kv0.Value.hours}
+    }
+
+    $prevTT0 = 0; foreach ($v0 in $prevPP.Values) { $prevTT0 += $v0.tasks }
+    $currTT0 = 0; foreach ($v0 in $currPP.Values) { $currTT0 += $v0.tasks }
+    $prevHH0 = 0.0; foreach ($v0 in $prevPP.Values) { $prevHH0 += $v0.hours }
+    $currHH0 = 0.0; foreach ($v0 in $currPP.Values) { $currHH0 += $v0.hours }
+    $prevEC0 = $prevPP.Count; $currEC0 = $currPP.Count
+
+    $dT0  = $currTT0 - $prevTT0
+    $dTp0 = if ($prevTT0 -gt 0) { [math]::Round($dT0/$prevTT0*100,1) } else { 0 }
+    $dE0  = $currEC0 - $prevEC0
+    $dEp0 = if ($prevEC0 -gt 0) { [math]::Round($dE0/$prevEC0*100,1) } else { 0 }
+    $dH0  = $currHH0 - $prevHH0
+    $dHp0 = if ($prevHH0 -gt 0) { [math]::Round($dH0/$prevHH0*100,1) } else { 0 }
+
+    $joined0 = @($currPP.Keys | Where-Object { -not $prevPP.ContainsKey($_) } | Sort-Object)
+    $left0   = @($prevPP.Keys | Where-Object { -not $currPP.ContainsKey($_) } | Sort-Object)
+
+    [void]$L.Add('<div class="card">')
+    [void]$L.Add('  <div class="section-title">&#1057;&#1088;&#1072;&#1074;&#1085;&#1077;&#1085;&#1080;&#1077; &#1089; ' + (Esc $prevPeriodLbl) + '</div>')
+
+    # 3-column summary
+    [void]$L.Add('  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">')
+    $sumItems0 = @(
+        @{lbl='&#1047;&#1072;&#1076;&#1072;&#1095;';            cur=[int]$currTT0; prv=[int]$prevTT0; d=[int]$dT0; dp=$dTp0},
+        @{lbl='&#1057;&#1086;&#1090;&#1088;&#1091;&#1076;&#1085;&#1080;&#1082;&#1086;&#1074;'; cur=[int]$currEC0; prv=[int]$prevEC0; d=[int]$dE0; dp=$dEp0},
+        @{lbl='&#1063;&#1072;&#1089;&#1086;&#1074;';            cur=[math]::Round($currHH0); prv=[math]::Round($prevHH0); d=[math]::Round($dH0); dp=$dHp0}
+    )
+    foreach ($si in $sumItems0) {
+        $sc = DCol $si.d; $ss = DSN $si.d
+        [void]$L.Add('    <div style="background:#f7f8fc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;text-align:center;">')
+        [void]$L.Add('      <div style="font-size:11px;font-weight:600;color:#718096;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">' + $si.lbl + '</div>')
+        [void]$L.Add('      <div style="font-size:28px;font-weight:700;">' + $si.cur + '</div>')
+        [void]$L.Add('      <div style="font-size:12px;color:#a0aec0;margin-top:2px;">&#1073;&#1099;&#1083;&#1086;: ' + $si.prv + '</div>')
+        [void]$L.Add('      <div style="font-size:15px;font-weight:700;color:' + $sc + ';margin-top:6px;">' + $ss + $si.d + ' (' + $ss + $si.dp + '%)</div>')
+        [void]$L.Add('    </div>')
+    }
+    [void]$L.Add('  </div>')
+
+    # Joined / Left chips
+    if ($joined0.Count -gt 0 -or $left0.Count -gt 0) {
+        [void]$L.Add('  <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;">')
+        if ($joined0.Count -gt 0) {
+            [void]$L.Add('    <div style="flex:1;min-width:220px;">')
+            [void]$L.Add('      <div style="font-size:12px;font-weight:600;color:#276749;margin-bottom:6px;">+ &#1042;&#1087;&#1077;&#1088;&#1074;&#1099;&#1077; &#1074; ' + (Esc $Label) + ':</div>')
+            [void]$L.Add('      <div style="display:flex;flex-wrap:wrap;gap:4px;">')
+            foreach ($nm0 in $joined0) { [void]$L.Add('        <span style="background:#c6f6d5;color:#276749;padding:2px 10px;border-radius:10px;font-size:12px;">' + (Esc $nm0) + '</span>') }
+            [void]$L.Add('      </div></div>')
+        }
+        if ($left0.Count -gt 0) {
+            [void]$L.Add('    <div style="flex:1;min-width:220px;">')
+            [void]$L.Add('      <div style="font-size:12px;font-weight:600;color:#c53030;margin-bottom:6px;">&#8722; &#1053;&#1077; &#1072;&#1082;&#1090;&#1080;&#1074;&#1085;&#1099; &#1074; ' + (Esc $Label) + ':</div>')
+            [void]$L.Add('      <div style="display:flex;flex-wrap:wrap;gap:4px;">')
+            foreach ($nm0 in $left0) { [void]$L.Add('        <span style="background:#fed7d7;color:#c53030;padding:2px 10px;border-radius:10px;font-size:12px;">' + (Esc $nm0) + '</span>') }
+            [void]$L.Add('      </div></div>')
+        }
+        [void]$L.Add('  </div>')
+    }
+
+    # Per-employee comparison table
+    [void]$L.Add('  <table class="summary-table">')
+    [void]$L.Add('    <thead><tr>')
+    [void]$L.Add('      <th>&#1057;&#1086;&#1090;&#1088;&#1091;&#1076;&#1085;&#1080;&#1082;</th>')
+    [void]$L.Add('      <th style="text-align:center">' + (Esc $prevPeriodLbl) + '<br><small style="font-weight:400;text-transform:none">&#1095; / &#1079;&#1072;&#1076;.</small></th>')
+    [void]$L.Add('      <th style="text-align:center">' + (Esc $Label) + '<br><small style="font-weight:400;text-transform:none">&#1095; / &#1079;&#1072;&#1076;.</small></th>')
+    [void]$L.Add('      <th style="text-align:center">&#916; &#1063;&#1072;&#1089;&#1086;&#1074;</th>')
+    [void]$L.Add('      <th style="text-align:center">&#916; &#1047;&#1072;&#1076;&#1072;&#1095;</th>')
+    [void]$L.Add('      <th style="text-align:center">&#1063;&#1072;&#1089;/&#1079;&#1072;&#1076;. (&#1101;&#1092;&#1092;.)</th>')
+    [void]$L.Add('    </tr></thead><tbody>')
+
+    $allP0 = @{}
+    foreach ($n0 in $currPP.Keys) { $allP0[$n0] = 1 }
+    foreach ($n0 in $prevPP.Keys) { $allP0[$n0] = 1 }
+    $sortedP0 = $allP0.Keys | Sort-Object { if ($currPP[$_]) { -$currPP[$_].hours } else { 9999 } }
+
+    foreach ($nm0 in $sortedP0) {
+        $cH0  = if ($currPP[$nm0]) { $currPP[$nm0].hours } else { 0.0 }
+        $cT0b = if ($currPP[$nm0]) { $currPP[$nm0].tasks } else { 0 }
+        $pH0  = if ($prevPP[$nm0]) { $prevPP[$nm0].hours } else { 0.0 }
+        $pT0  = if ($prevPP[$nm0]) { $prevPP[$nm0].tasks } else { 0 }
+
+        $cEff0 = if ($cT0b -gt 0) { [math]::Round($cH0/$cT0b,1) } else { 0.0 }
+        $pEff0 = if ($pT0 -gt 0)  { [math]::Round($pH0/$pT0,1) }  else { 0.0 }
+        $dEff0 = if ($cEff0 -gt 0 -and $pEff0 -gt 0) { [math]::Round($cEff0-$pEff0,1) } else { 0.0 }
+
+        $dHv0  = $cH0 - $pH0
+        $dHvp0 = if ($pH0 -gt 0) { [math]::Round($dHv0/$pH0*100,1) } else { 0 }
+        $dTv0  = $cT0b - $pT0
+        $dTvp0 = if ($pT0 -gt 0) { [math]::Round($dTv0/$pT0*100,1) } else { 0 }
+
+        $prevC0 = if ($pT0 -gt 0)  { (Fmt $pH0) + ' / ' + $pT0  } else { '&mdash;' }
+        $currC0 = if ($cT0b -gt 0) { (Fmt $cH0) + ' / ' + $cT0b } else { '&mdash;' }
+
+        $effC0 = if ($pEff0 -gt 0 -and $cEff0 -gt 0) {
+            $es = DSN $dEff0; $ec = DCol $dEff0 $true
+            [string]$pEff0 + ' &#8594; <strong style="color:' + $ec + '">' + [string]$cEff0 + '</strong> <small style="color:#a0aec0">(' + $es + [string]$dEff0 + ')</small>'
+        } elseif ($cEff0 -gt 0) { '&#8594; ' + [string]$cEff0 }
+        else { '&mdash;' }
+
+        $dHhtml0 = if ($pH0 -gt 0) {
+            $s0 = DSN $dHv0; $c0 = DCol $dHv0
+            '<span style="color:' + $c0 + ';font-weight:600">' + $s0 + (Fmt $dHv0) + '</span><br><small style="color:#a0aec0">' + $s0 + $dHvp0 + '%</small>'
+        } else { '<small style="color:#a0aec0">&#1085;&#1086;&#1074;&#1099;&#1081;</small>' }
+
+        $dThtml0 = if ($pT0 -gt 0) {
+            $s0 = DSN $dTv0; $c0 = DCol $dTv0
+            '<span style="color:' + $c0 + ';font-weight:600">' + $s0 + $dTv0 + '</span><br><small style="color:#a0aec0">' + $s0 + $dTvp0 + '%</small>'
+        } else { '<small style="color:#a0aec0">&#1085;&#1086;&#1074;&#1099;&#1081;</small>' }
+
+        [void]$L.Add('      <tr>')
+        [void]$L.Add('        <td><strong>' + (Esc $nm0) + '</strong></td>')
+        [void]$L.Add('        <td style="text-align:center;color:#718096;">' + $prevC0 + '</td>')
+        [void]$L.Add('        <td style="text-align:center;font-weight:700;">' + $currC0 + '</td>')
+        [void]$L.Add('        <td style="text-align:center;">' + $dHhtml0 + '</td>')
+        [void]$L.Add('        <td style="text-align:center;">' + $dThtml0 + '</td>')
+        [void]$L.Add('        <td style="text-align:center;font-size:13px;">' + $effC0 + '</td>')
+        [void]$L.Add('      </tr>')
+    }
+    [void]$L.Add('    </tbody></table>')
+    [void]$L.Add('</div>')
+}
+
 # Footer
 $genDate = Get-Date -Format 'dd.MM.yyyy HH:mm'
 [void]$L.Add('<div style="text-align:center;color:#a0aec0;font-size:12px;padding:24px 0">&#1057;&#1075;&#1077;&#1085;&#1077;&#1088;&#1080;&#1088;&#1086;&#1074;&#1072;&#1085;&#1086;: ' + $genDate + ' &nbsp;|&nbsp; Asana time_tracking_entries &nbsp;|&nbsp; ' + $StartDisp + ' &#8212; ' + $EndDisp + '</div>')
