@@ -52,6 +52,13 @@ $ART_DIRECTION = @{
 $ART_GID_SET = @{}
 foreach ($g in $ART_GIDs) { $ART_GID_SET[$g] = $true }
 
+$STATUS_FIELD_GID = "1213529841611701"
+$TARGET_STATUSES  = @{
+    "1214732680333428" = "ART Ready"
+    "1213906104809741" = "Ready for Test"
+    "1213634616829012" = "In test"
+}
+
 # ============================================================
 # STEP 1 - Collect tasks from 10 ART projects
 # ============================================================
@@ -62,7 +69,7 @@ foreach ($projGid in $ART_GIDs) {
     $offset   = $null
     $newCount = 0
     do {
-        $url = "$apiBase/projects/$projGid/tasks?opt_fields=gid,name,assignee.name,memberships.project.gid,memberships.project.name,permalink_url&limit=100"
+        $url = "$apiBase/projects/$projGid/tasks?opt_fields=gid,name,assignee.name,memberships.project.gid,memberships.project.name,permalink_url,custom_fields.gid,custom_fields.enum_value.gid&limit=100"
         if ($offset) { $url += "&offset=$offset" }
         try {
             $resp = Invoke-RestMethod $url -Headers $headers
@@ -76,11 +83,17 @@ foreach ($projGid in $ART_GIDs) {
                             }
                         }
                     }
+                    $statusGid = ""
+                    if ($task.PSObject.Properties['custom_fields'] -and $task.custom_fields) {
+                        $sf = $task.custom_fields | Where-Object { $_.gid -eq $STATUS_FIELD_GID }
+                        if ($sf -and $sf.enum_value -and $sf.enum_value.gid) { $statusGid = $sf.enum_value.gid }
+                    }
                     $allTasks[$task.gid] = @{
                         name          = $task.name
                         assignee      = if ($task.PSObject.Properties['assignee'] -and $task.assignee -and $task.assignee.name) { $task.assignee.name } else { "Unassigned" }
                         permalink_url = if ($task.PSObject.Properties['permalink_url']) { $task.permalink_url } else { "" }
                         memberships   = $mems
+                        status_gid    = $statusGid
                     }
                     $newCount++
                 }
@@ -117,6 +130,22 @@ foreach ($gid in @($allTasks.Keys)) {
     } catch {}
 }
 Write-Host "Tasks with tracked time in period: $($taskMinutes.Count)"
+
+# ============================================================
+# STEP 2.3 - Add tasks with target statuses (ART Ready / Ready for Test / In test)
+# ============================================================
+$statusAddedCount = 0
+foreach ($gid in @($allTasks.Keys)) {
+    if ($taskMinutes.ContainsKey($gid)) { continue }  # already has tracked time
+    $sGid = $allTasks[$gid].status_gid
+    if ($TARGET_STATUSES.ContainsKey($sGid)) {
+        $taskMinutes[$gid] = 0
+        $allTasks[$gid].is_status_based = $true
+        $allTasks[$gid].status_name     = $TARGET_STATUSES[$sGid]
+        $statusAddedCount++
+    }
+}
+Write-Host "Tasks added by status (0 time tracked): $statusAddedCount"
 
 # ============================================================
 # STEP 2.5 - Art Team members + their tasks outside ART portfolio
@@ -200,6 +229,7 @@ foreach ($gid in $taskMinutes.Keys) {
     }
     if (-not $attrProject) { $attrProject = if ($isExt) { "No project" } else { "Unknown" } }
 
+    $isSB = $allTasks[$gid].is_status_based -eq $true
     $processed[$gid] = @{
         name               = $task.name
         assignee           = $task.assignee
@@ -209,6 +239,8 @@ foreach ($gid in $taskMinutes.Keys) {
         external           = $isExt
         minutes            = $taskMinutes[$gid]
         hours              = [math]::Round($taskMinutes[$gid] / 60, 2)
+        is_status_based    = $isSB
+        status_name        = if ($isSB) { $allTasks[$gid].status_name } else { "" }
     }
 }
 $processed | ConvertTo-Json -Depth 10 | Out-File $jsonFile -Encoding utf8
@@ -232,6 +264,8 @@ foreach ($prop in $dataObj.PSObject.Properties) {
         attributed_project = [string]$t.attributed_project
         external           = [bool]$t.external
         hours              = [double]$t.hours
+        is_status_based    = if ($t.PSObject.Properties['is_status_based']) { [bool]$t.is_status_based } else { $false }
+        status_name        = if ($t.PSObject.Properties['status_name']) { [string]$t.status_name } else { "" }
     }
 }
 
@@ -261,6 +295,14 @@ function Art-Pill([string]$dir) {
 function Fmt([double]$h) {
     if ($h -eq [math]::Floor($h)) { "$([int]$h)" } else { "$([math]::Round($h,2))" }
 }
+function Status-Pill([string]$sn) {
+    switch ($sn) {
+        'ART Ready'      { '<span class="status-pill sp-art-ready">ART Ready</span>' }
+        'Ready for Test' { '<span class="status-pill sp-ready-test">Ready for Test</span>' }
+        'In test'        { '<span class="status-pill sp-in-test">In test</span>' }
+        default          { '' }
+    }
+}
 
 # Aggregate
 $byProject   = @{}
@@ -275,7 +317,7 @@ foreach ($gid in $tasks2.Keys) {
         if (-not $byProject.ContainsKey($proj)) {
             $byProject[$proj] = @{ tasks=[System.Collections.Generic.List[object]]::new(); hours=0.0; dirs=@{} }
         }
-        $byProject[$proj].tasks.Add(@{gid=$gid;name=$t.name;assignee=$t.assignee;url=$t.permalink_url;dir=$dir;hours=$t.hours})
+        $byProject[$proj].tasks.Add(@{gid=$gid;name=$t.name;assignee=$t.assignee;url=$t.permalink_url;dir=$dir;hours=$t.hours;is_status_based=$t.is_status_based;status_name=$t.status_name})
         $byProject[$proj].hours += $t.hours
         $byProject[$proj].dirs[$dir] = 1
         if (-not $byDirection.ContainsKey($dir)) { $byDirection[$dir] = 0.0 }
@@ -290,8 +332,12 @@ foreach ($gid in $tasks2.Keys) {
 
 $totalH    = 0.0
 $totalT    = 0
+$totalSB   = 0
 foreach ($g in $tasks2.Keys) {
-    if (-not $tasks2[$g].external) { $totalH += $tasks2[$g].hours; $totalT++ }
+    if (-not $tasks2[$g].external) {
+        if ($tasks2[$g].is_status_based) { $totalSB++ }
+        else { $totalH += $tasks2[$g].hours; $totalT++ }
+    }
 }
 $empTotalH = 0.0
 foreach ($v in $byAssignee.Values) { $empTotalH += $v.hours }
@@ -351,6 +397,11 @@ $L = [System.Collections.Generic.List[string]]::new()
 [void]$L.Add('.art-aso { background:#fed7e2; color:#97266d; }')
 [void]$L.Add('.art-ban { background:#e2e8f0; color:#4a5568; }')
 [void]$L.Add('.art-cas { background:#e6fffa; color:#234e52; }')
+[void]$L.Add('.status-pill { display:inline-block; padding:1px 7px; border-radius:8px; font-size:10px; font-weight:600; margin-left:5px; vertical-align:middle; }')
+[void]$L.Add('.sp-art-ready { background:#c6f6d5; color:#276749; }')
+[void]$L.Add('.sp-ready-test { background:#bee3f8; color:#2a69ac; }')
+[void]$L.Add('.sp-in-test { background:#feebc8; color:#7b341e; }')
+[void]$L.Add('.status-row td { background:#fafffe; }')
 [void]$L.Add('.dist-chart { display:flex; flex-direction:column; gap:10px; }')
 [void]$L.Add('.dist-row { display:flex; align-items:center; gap:12px; }')
 [void]$L.Add('.dist-label { width:240px; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }')
@@ -390,6 +441,7 @@ $L = [System.Collections.Generic.List[string]]::new()
 [void]$L.Add('  <div class="stats">')
 [void]$L.Add('    <div class="stat"><div class="stat-val">' + $totalHInt + '</div><div class="stat-lbl">&#1063;&#1072;&#1089;&#1086;&#1074; (' + $Label + ')</div></div>')
 [void]$L.Add('    <div class="stat"><div class="stat-val">' + $totalT + '</div><div class="stat-lbl">&#1047;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</div></div>')
+[void]$L.Add('    <div class="stat"><div class="stat-val">' + $totalSB + '</div><div class="stat-lbl">&#1042; &#1088;&#1072;&#1073;&#1086;&#1090;&#1077; (ART Ready/Test)</div></div>')
 [void]$L.Add('    <div class="stat"><div class="stat-val">' + $totalP + '</div><div class="stat-lbl">&#1055;&#1088;&#1086;&#1077;&#1082;&#1090;&#1086;&#1074;</div></div>')
 [void]$L.Add('    <div class="stat"><div class="stat-val">' + $totalD + '</div><div class="stat-lbl">&#1053;&#1072;&#1087;&#1088;&#1072;&#1074;&#1083;&#1077;&#1085;&#1080;&#1081; ART</div></div>')
 [void]$L.Add('  </div>')
@@ -471,7 +523,10 @@ foreach ($kv in $sortedProj) {
     [void]$L.Add('      <thead><tr><th>&#1047;&#1072;&#1076;&#1072;&#1095;&#1072;</th><th>&#1053;&#1072;&#1087;&#1088;&#1072;&#1074;&#1083;&#1077;&#1085;&#1080;&#1077;</th><th>&#1048;&#1089;&#1087;&#1086;&#1083;&#1085;&#1080;&#1090;&#1077;&#1083;&#1100;</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th></tr></thead>')
     [void]$L.Add('      <tbody>')
     foreach ($tk in ($kv.Value.tasks | Sort-Object { $_.hours } -Descending)) {
-        [void]$L.Add('        <tr><td><a class="task-link" href="' + $tk.url + '" target="_blank">' + (Esc $tk.name) + '</a></td><td>' + (Art-Pill $tk.dir) + '</td><td>' + (Esc $tk.assignee) + '</td><td class="hours">' + (Fmt $tk.hours) + '</td></tr>')
+        $hCell = if ($tk.is_status_based) { '&mdash;' } else { Fmt $tk.hours }
+        $trCls = if ($tk.is_status_based) { ' class="status-row"' } else { '' }
+        $sPill = if ($tk.is_status_based) { Status-Pill $tk.status_name } else { '' }
+        [void]$L.Add('        <tr' + $trCls + '><td><a class="task-link" href="' + $tk.url + '" target="_blank">' + (Esc $tk.name) + '</a>' + $sPill + '</td><td>' + (Art-Pill $tk.dir) + '</td><td>' + (Esc $tk.assignee) + '</td><td class="hours">' + $hCell + '</td></tr>')
     }
     [void]$L.Add('        <tr class="total-row"><td colspan="3">&#1048;&#1090;&#1086;&#1075;&#1086;: ' + (Esc $kv.Key) + '</td><td>' + $phd + '</td></tr>')
     [void]$L.Add('      </tbody></table></div>')
