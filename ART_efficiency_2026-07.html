@@ -1,0 +1,158 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ART Efficiency Report — 01.07.2026 - 10.07.2026</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#f5f6fa; color:#2d3748; font-size:14px; }
+.container { max-width:1100px; margin:0 auto; padding:24px 16px; }
+.header { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; border-radius:12px; padding:28px 32px; margin-bottom:24px; }
+.header h1 { font-size:22px; margin-bottom:4px; }
+.header .sub { opacity:.85; font-size:13px; margin-bottom:18px; }
+.meta-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+.meta-card { background:rgba(255,255,255,.14); border-radius:8px; padding:12px 16px; }
+.meta-card .val { font-size:22px; font-weight:700; }
+.meta-card .lbl { font-size:11px; opacity:.85; text-transform:uppercase; letter-spacing:.5px; }
+.notice { background:#ebf8ff; border-left:4px solid #3182ce; padding:12px 16px; border-radius:6px; margin-bottom:24px; font-size:13px; color:#2a4365; }
+.notice-y { background:#fffff0; border-left:4px solid #d69e2e; padding:12px 16px; border-radius:6px; margin-bottom:24px; font-size:13px; color:#744210; }
+.section-title { display:flex; align-items:center; gap:8px; font-size:16px; font-weight:700; margin:28px 0 14px; }
+.section-title::before { content:""; display:block; width:4px; height:18px; background:#667eea; border-radius:2px; }
+.card { background:white; border-radius:12px; padding:20px 24px; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+table { width:100%; border-collapse:collapse; }
+th { background:#f7f8fc; text-align:left; padding:10px 14px; font-weight:600; font-size:12px; color:#718096; text-transform:uppercase; letter-spacing:.5px; border-bottom:2px solid #e2e8f0; }
+td { padding:9px 14px; border-bottom:1px solid #edf2f7; }
+tr:hover td { background:#f7f8fc; }
+.bar-wrap { width:100%; background:#edf2f7; border-radius:4px; height:8px; min-width:80px; }
+.bar { height:8px; border-radius:4px; background:#667eea; }
+.badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+.sp-art-ready { background:#c6f6d5; color:#276749; }
+.sp-ready-test { background:#bee3f8; color:#2a69ac; }
+.sp-in-test { background:#feebc8; color:#7b341e; }
+.sp-done { background:#e9d8fd; color:#553c9a; }
+.grp-uiux { background:#e9d8fd; color:#553c9a; }
+.grp-3d { background:#bee3f8; color:#2a69ac; }
+.grp-aso { background:#fed7e2; color:#97266d; }
+details { margin-bottom:8px; }
+summary { cursor:pointer; padding:10px 14px; background:#f7f8fc; border-radius:8px; font-weight:600; font-size:13px; }
+summary:hover { background:#edf2f7; }
+.det-inner { padding:8px 4px 4px; }
+a { color:#5a67d8; text-decoration:none; }
+a:hover { text-decoration:underline; }
+.muted { color:#a0aec0; }
+.num { text-align:right; font-variant-numeric:tabular-nums; }
+.footer { text-align:center; color:#a0aec0; font-size:12px; margin:32px 0 16px; }
+@media (max-width:760px){ .meta-grid{grid-template-columns:repeat(2,1fr);} }
+</style></head><body><div class="container">
+
+<div class="header"><h1>Оценка эффективности сотрудников ART</h1>
+<div class="sub">Период: 01.07.2026 - 10.07.2026 · Кэфф = Σ(А/В) / N по задачам, перешедшим в статусы ART Ready / Ready for Test / In test / Done</div>
+<div class="meta-grid">
+<div class="meta-card"><div class="val">13</div><div class="lbl">Задач учтено</div></div>
+<div class="meta-card"><div class="val">7</div><div class="lbl">Сотрудников</div></div>
+<div class="meta-card"><div class="val">1.23</div><div class="lbl">Средний Кэфф</div></div>
+<div class="meta-card"><div class="val">11</div><div class="lbl">Без оценки А/В</div></div>
+<div class="meta-card"><div class="val">6</div><div class="lbl">Проектов</div></div>
+</div></div>
+<div class="notice"><b>Методика.</b> Учитываются задачи 9 ART-проектов, у которых в течение периода статус
+сменился на один из четырёх: ART Ready, Ready for Test, In test, Done (по истории изменений задачи).
+Исполнитель должен входить в команду Art Team. Кэфф сотрудника = сумма коэффициентов А/В его задач,
+делённая на количество задач N. Задачи без заполненных А или В (или В=0) в расчёт не входят и показаны отдельным блоком.</div>
+<div class="section-title">Сводная оценка по сотрудникам</div><div class="card"><table>
+<tr><th>#</th><th>Сотрудник</th><th>Группы</th><th class="num">Задач (N)</th><th class="num">Σ(А/В)</th><th class="num">Кэфф</th><th style="width:220px">&nbsp;</th></tr>
+<tr><td class="muted">1</td><td><b>Anna Hrabko</b></td><td><span class="badge grp-uiux">UI/UX</span></td><td class="num">3</td><td class="num">7</td><td class="num"><b>2.33</b></td><td><div class="bar-wrap"><div class="bar" style="width:100%"></div></div></td></tr>
+<tr><td class="muted">2</td><td><b>Viktoriia Bahlai</b></td><td><span class="badge grp-uiux">UI/UX</span></td><td class="num">1</td><td class="num">1.5</td><td class="num"><b>1.5</b></td><td><div class="bar-wrap"><div class="bar" style="width:64%"></div></div></td></tr>
+<tr><td class="muted">3</td><td><b>Tetiana Bielousova</b></td><td><span class="badge grp-uiux">UI/UX</span></td><td class="num">2</td><td class="num">2</td><td class="num"><b>1</b></td><td><div class="bar-wrap"><div class="bar" style="width:43%"></div></div></td></tr>
+<tr><td class="muted">4</td><td><b>Ivan Monarkha</b></td><td><span class="badge grp-aso">ASO</span></td><td class="num">1</td><td class="num">1</td><td class="num"><b>1</b></td><td><div class="bar-wrap"><div class="bar" style="width:43%"></div></div></td></tr>
+<tr><td class="muted">5</td><td><b>Kateryna Svyrydova</b></td><td><span class="badge grp-aso">ASO</span></td><td class="num">1</td><td class="num">1</td><td class="num"><b>1</b></td><td><div class="bar-wrap"><div class="bar" style="width:43%"></div></div></td></tr>
+<tr><td class="muted">6</td><td><b>Denis Kitsa</b></td><td><span class="badge grp-3d">3D</span></td><td class="num">3</td><td class="num">2.33</td><td class="num"><b>0.78</b></td><td><div class="bar-wrap"><div class="bar" style="width:33%"></div></div></td></tr>
+<tr><td class="muted">7</td><td><b>Oleksandr Hrazhdan</b></td><td><span class="badge grp-3d">3D</span></td><td class="num">2</td><td class="num">1.1</td><td class="num"><b>0.55</b></td><td><div class="bar-wrap"><div class="bar" style="width:24%"></div></div></td></tr>
+</table></div>
+<div class="section-title">Группа UI/UX <span class="badge grp-uiux">6 задач</span></div>
+<div class="card">
+<table><tr><th>Сотрудник</th><th class="num">Задач (N)</th><th class="num">Σ(А/В)</th><th class="num">Кэфф</th><th style="width:220px">&nbsp;</th></tr>
+<tr><td><b>Anna Hrabko</b></td><td class="num">3</td><td class="num">7</td><td class="num"><b>2.33</b></td><td><div class="bar-wrap"><div class="bar" style="width:100%;background:#805ad5"></div></div></td></tr>
+<tr><td><b>Viktoriia Bahlai</b></td><td class="num">1</td><td class="num">1.5</td><td class="num"><b>1.5</b></td><td><div class="bar-wrap"><div class="bar" style="width:64%;background:#805ad5"></div></div></td></tr>
+<tr><td><b>Tetiana Bielousova</b></td><td class="num">2</td><td class="num">2</td><td class="num"><b>1</b></td><td><div class="bar-wrap"><div class="bar" style="width:43%;background:#805ad5"></div></div></td></tr>
+</table></div>
+<div class="section-title">Группа 3D <span class="badge grp-3d">5 задач</span></div>
+<div class="card">
+<table><tr><th>Сотрудник</th><th class="num">Задач (N)</th><th class="num">Σ(А/В)</th><th class="num">Кэфф</th><th style="width:220px">&nbsp;</th></tr>
+<tr><td><b>Denis Kitsa</b></td><td class="num">3</td><td class="num">2.33</td><td class="num"><b>0.78</b></td><td><div class="bar-wrap"><div class="bar" style="width:100%;background:#3182ce"></div></div></td></tr>
+<tr><td><b>Oleksandr Hrazhdan</b></td><td class="num">2</td><td class="num">1.1</td><td class="num"><b>0.55</b></td><td><div class="bar-wrap"><div class="bar" style="width:71%;background:#3182ce"></div></div></td></tr>
+</table></div>
+<div class="section-title">Группа ASO <span class="badge grp-aso">2 задач</span></div>
+<div class="card">
+<table><tr><th>Сотрудник</th><th class="num">Задач (N)</th><th class="num">Σ(А/В)</th><th class="num">Кэфф</th><th style="width:220px">&nbsp;</th></tr>
+<tr><td><b>Ivan Monarkha</b></td><td class="num">1</td><td class="num">1</td><td class="num"><b>1</b></td><td><div class="bar-wrap"><div class="bar" style="width:100%;background:#d53f8c"></div></div></td></tr>
+<tr><td><b>Kateryna Svyrydova</b></td><td class="num">1</td><td class="num">1</td><td class="num"><b>1</b></td><td><div class="bar-wrap"><div class="bar" style="width:100%;background:#d53f8c"></div></div></td></tr>
+</table></div>
+<div class="section-title">Детализация по сотрудникам</div><div class="card">
+<details><summary>Anna Hrabko — 3 задач, Кэфф 2.33</summary><div class="det-inner"><table>
+<tr><th>Задача</th><th>Группа</th><th>Статус</th><th>Дата перехода</th><th class="num">А</th><th class="num">В</th><th class="num">А/В</th></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1215830610979413" target="_blank">[2D ART] Иконки покупок для Amazon </a></td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-done">Done</span></td><td>2026-07-01 17:19</td><td class="num">3</td><td class="num">1</td><td class="num"><b>3</b></td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1213900592228278" target="_blank">[2D ART] Подбор шрифтов для локализации</a></td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-03 16:00</td><td class="num">3</td><td class="num">1</td><td class="num"><b>3</b></td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1216248559086243" target="_blank">[2D ART] Правки по Арту боссов и мини-боссов</a></td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-06 16:17</td><td class="num">1</td><td class="num">1</td><td class="num"><b>1</b></td></tr>
+</table></div></details>
+<details><summary>Viktoriia Bahlai — 1 задач, Кэфф 1.5</summary><div class="det-inner"><table>
+<tr><th>Задача</th><th>Группа</th><th>Статус</th><th>Дата перехода</th><th class="num">А</th><th class="num">В</th><th class="num">А/В</th></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1215834646417843" target="_blank">[2D ART] Скин-пак "EDM" в IAP</a></td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-09 16:51</td><td class="num">3</td><td class="num">2</td><td class="num"><b>1.5</b></td></tr>
+</table></div></details>
+<details><summary>Tetiana Bielousova — 2 задач, Кэфф 1</summary><div class="det-inner"><table>
+<tr><th>Задача</th><th>Группа</th><th>Статус</th><th>Дата перехода</th><th class="num">А</th><th class="num">В</th><th class="num">А/В</th></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1216047770553071" target="_blank">[2D ART] Портреты скинов -  Sport pack </a></td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-06 16:21</td><td class="num">1</td><td class="num">1</td><td class="num"><b>1</b></td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1216157611478629" target="_blank">[2D ART] Обновление и доработка UI для режима с порталами</a></td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-07 13:46</td><td class="num">3</td><td class="num">3</td><td class="num"><b>1</b></td></tr>
+</table></div></details>
+<details><summary>Ivan Monarkha — 1 задач, Кэфф 1</summary><div class="det-inner"><table>
+<tr><th>Задача</th><th>Группа</th><th>Статус</th><th>Дата перехода</th><th class="num">А</th><th class="num">В</th><th class="num">А/В</th></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213910439713691/task/1216196530370807" target="_blank">7086 10271 Obby Online Parkour World</a></td><td><span class="badge grp-aso">ASO</span></td><td><span class="badge sp-done">Done</span></td><td>2026-07-02 14:31</td><td class="num">3</td><td class="num">3</td><td class="num"><b>1</b></td></tr>
+</table></div></details>
+<details><summary>Kateryna Svyrydova — 1 задач, Кэфф 1</summary><div class="det-inner"><table>
+<tr><th>Задача</th><th>Группа</th><th>Статус</th><th>Дата перехода</th><th class="num">А</th><th class="num">В</th><th class="num">А/В</th></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213911895502718/task/1216149172847089" target="_blank">Custom Club - FIFA Club World Cup Event</a></td><td><span class="badge grp-aso">ASO</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-02 09:11</td><td class="num">3</td><td class="num">3</td><td class="num"><b>1</b></td></tr>
+</table></div></details>
+<details><summary>Denis Kitsa — 3 задач, Кэфф 0.78</summary><div class="det-inner"><table>
+<tr><th>Задача</th><th>Группа</th><th>Статус</th><th>Дата перехода</th><th class="num">А</th><th class="num">В</th><th class="num">А/В</th></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213599181255288/task/1215710948412165" target="_blank">[VFX ART] Shock Chain</a></td><td><span class="badge grp-3d">3D</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-07 18:02</td><td class="num">3</td><td class="num">3</td><td class="num"><b>1</b></td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213599181255288/task/1215710948412164" target="_blank">[VFX ART] Mass Pull</a></td><td><span class="badge grp-3d">3D</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-09 12:46</td><td class="num">3</td><td class="num">3</td><td class="num"><b>1</b></td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213599181255292/task/1215353569818288" target="_blank">[ANIM ART] Анимации для стори 4</a></td><td><span class="badge grp-3d">3D</span></td><td><span class="badge sp-done">Done</span></td><td>2026-07-01 11:07</td><td class="num">1</td><td class="num">3</td><td class="num"><b>0.33</b></td></tr>
+</table></div></details>
+<details><summary>Oleksandr Hrazhdan — 2 задач, Кэфф 0.55</summary><div class="det-inner"><table>
+<tr><th>Задача</th><th>Группа</th><th>Статус</th><th>Дата перехода</th><th class="num">А</th><th class="num">В</th><th class="num">А/В</th></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805258/task/1216157611478627" target="_blank">[3D ART] Космический корабль для режима с Порталами</a></td><td><span class="badge grp-3d">3D</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-09 16:02</td><td class="num">3</td><td class="num">5</td><td class="num"><b>0.6</b></td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805258/task/1216157611478628" target="_blank">[3D ART] Поправить освещение (или текстуру) в сцене</a></td><td><span class="badge grp-3d">3D</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td>2026-07-09 11:53</td><td class="num">1</td><td class="num">2</td><td class="num"><b>0.5</b></td></tr>
+</table></div></details>
+</div>
+<div class="section-title">Задачи без оценки А/В — не вошли в расчёт (11)</div>
+<div class="notice-y">У этих задач менеджеры не заполнили А и/или В (или В = 0). Они соответствуют всем остальным критериям и войдут в расчёт после заполнения.</div><div class="card"><table>
+<tr><th>Задача</th><th>Сотрудник</th><th>Группа</th><th>Статус</th><th class="num">А</th><th class="num">В</th></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213599181255292/task/1216064503168638" target="_blank">[ANIM ART] транзішн екран Вибір режимів</a></td><td>Denis Kitsa</td><td><span class="badge grp-3d">3D</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213599181255288/task/1216064503168643" target="_blank">[VFX ART] Ефекти для екрану Вибір режимів</a></td><td>Denis Kitsa</td><td><span class="badge grp-3d">3D</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213599181255292/task/1215907108832587" target="_blank">[ANIM ART] New VFX for Merge and Add Cells</a></td><td>Vadym Flinta</td><td><span class="badge grp-3d">3D</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805258/task/1215793148417046" target="_blank">[3D ART] Модель, текстура для нового скина паука (репер)</a></td><td>Volodymyr Demchenko</td><td><span class="badge grp-3d">3D</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1215528908164974" target="_blank">[2D ART] Daily Tasks - окно, иконки, автарка уникального скина </a></td><td>Olena Bishko</td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1216003259908862" target="_blank">[2D ART] Иконки для товаров</a></td><td>Olena Bishko</td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1214494085804502" target="_blank">[2D ART] 30d NoAds Offer Art</a></td><td>Olha Minko</td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-done">Done</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1214494085804498" target="_blank">[2D ART] Chain offer art</a></td><td>Olha Minko</td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-done">Done</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1216047770553069" target="_blank">[2D ART] Оффер Sport pack - поп-ап, иконка, секция в IAP</a></td><td>Tetiana Bielousova</td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-art-ready">ART Ready</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1215966303333550" target="_blank">[2D ART] Иконки для товаров в Амазон</a></td><td>Viktoriia Bahlai</td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-done">Done</span></td><td class="num">—</td><td class="num">—</td></tr>
+<tr><td><a href="https://app.asana.com/1/1210983682540893/project/1213598068805254/task/1214742506789584" target="_blank">[2D ART] Подписка No Ads для Амазон</a></td><td>Viktoriia Bahlai</td><td><span class="badge grp-uiux">UI/UX</span></td><td><span class="badge sp-done">Done</span></td><td class="num">—</td><td class="num">—</td></tr>
+</table></div>
+<div class="section-title">Диагностика</div><div class="card">
+<p style="margin-bottom:8px"><b>Banner ADS: движение только по собственному полю «ART Status» (14)</b> — общее поле Status в проекте не подключено, задачи не могли попасть в расчёт:</p><ul style="margin:0 0 8px 20px">
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216196530370774" target="_blank">В002 11503 Build an Aquapark</a> — Artem Surin <span class="muted">BACKLOG (2026-07-01 10:58), In Progress (2026-07-02 11:29), Aso Test Backlog (2026-07-03 12:19), Complete (2026-07-05 21:24)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216197739512431" target="_blank">В018 786-795 Vlad &amp; Niki Supermarket game</a> — Ivanna Trotska <span class="muted">BACKLOG (2026-07-01 10:58)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216197739512424" target="_blank">B003 7304_7305 Spinner Fighter Arena</a> — Ivan Monarkha <span class="muted">BACKLOG (2026-07-01 10:57), Aso Test Backlog (2026-07-02 11:22), Complete (2026-07-05 12:45)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216196530370750" target="_blank">В003 7953 Vlad and Niki - World Travel</a> — Kseniia Ozerianova <span class="muted">BACKLOG (2026-07-01 10:58), Aso Test Backlog (2026-07-09 19:10)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216389841399140" target="_blank">В001 12398 Scooter Evolution</a> — Ivan Monarkha <span class="muted">BACKLOG (2026-07-08 18:06), In Progress (2026-07-09 17:52)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216196530370756" target="_blank">В006 1335-1336 Pixel Combat: Zombie Games</a> — Artem Surin <span class="muted">BACKLOG (2026-07-01 10:58), In Progress (2026-07-09 08:40), Aso Test Backlog (2026-07-10 09:12)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216196530370768" target="_blank">B002 ArrowRush: Tap &amp; Clear Game</a> — Unassigned <span class="muted">BACKLOG (2026-07-01 10:58)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216196530370762" target="_blank">B002 4672 Vegas Crime Simulator</a> — Artem Surin <span class="muted">BACKLOG (2026-07-01 10:58), In Progress (2026-07-10 09:47)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216353412028622" target="_blank">ресайзи 9473 WeaveRacer - Idle Overtake</a> — Kseniia Ozerianova <span class="muted">Aso Test Backlog (2026-07-07 15:09), Complete (2026-07-07 16:35)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216197739512421" target="_blank">B004 4228 Custom Club: Online Racing 3D»</a> — Ivan Monarkha <span class="muted">BACKLOG (2026-07-01 10:57), Aso Test Backlog (2026-07-01 11:00), Complete (2026-07-01 22:29)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216256801031162" target="_blank">В001 11482 Infinity Shooter</a> — Ivan Monarkha <span class="muted">BACKLOG (2026-07-03 11:21), Aso Test Backlog (2026-07-03 12:21), Complete (2026-07-03 17:26)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216196530370782" target="_blank">B003 4708 BLOCKFIELD — 5v5 PvP Shooter</a> — Veronika Velykodna-Chernienko <span class="muted">BACKLOG (2026-07-01 10:58), In Progress (2026-07-01 13:29), Aso Test Backlog (2026-07-02 15:33), Complete (2026-07-03 08:04)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216103226487688" target="_blank">В001 1364 TEGRA－Post Apocalypse Survival</a> — Ivan Monarkha <span class="muted">Complete (2026-07-01 11:26)</span></li>
+<li><a href="https://app.asana.com/1/1210983682540893/project/1213993120177405/task/1216228544164361" target="_blank">В001 11962 Rocket Evolution</a> — Ivanna Trotska <span class="muted">BACKLOG (2026-07-03 11:21), Aso Test Backlog (2026-07-09 11:35), Complete (2026-07-09 22:51)</span></li>
+</ul>
+</div>
+<div class="footer">Сгенерировано 2026-07-10 09:53 · данные Asana API · период 01.07.2026 - 10.07.2026</div>
+</div></body></html>
