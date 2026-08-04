@@ -442,9 +442,9 @@ function Build-TrendSvg([array]$points) {
 
     foreach ($p in $pts) {
         $xr = [math]::Round($p.x,1); $yr = [math]::Round($p.y,1)
-        [void]$svg.Add('<circle cx="' + $xr + '" cy="' + $yr + '" r="5" fill="#667eea" stroke="white" stroke-width="2"><title>' + (Esc $p.label) + ': ' + $p.v + ' &#1079;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</title></circle>')
+        [void]$svg.Add('<circle cx="' + $xr + '" cy="' + $yr + '" r="5" fill="#667eea" stroke="white" stroke-width="2"><title>' + $p.label + ': ' + $p.v + ' &#1079;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</title></circle>')
         [void]$svg.Add('<text x="' + $xr + '" y="' + [math]::Round($p.y-14,1) + '" font-size="13" font-weight="700" fill="#2d3748" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif">' + $p.v + '</text>')
-        [void]$svg.Add('<text x="' + $xr + '" y="' + ($H-10) + '" font-size="12" fill="#718096" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif">' + (Esc $p.label) + '</text>')
+        [void]$svg.Add('<text x="' + $xr + '" y="' + ($H-10) + '" font-size="12" fill="#718096" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif">' + $p.label + '</text>')
     }
 
     [void]$svg.Add('</svg>')
