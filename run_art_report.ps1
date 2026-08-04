@@ -118,20 +118,23 @@ Write-Host "Total unique tasks: $($allTasks.Count)"
 # ============================================================
 Write-Host "`n[2/3] Fetching time entries for $StartDisp - $EndDisp ..."
 $taskMinutes = @{}
+$taskLoggers = @{}
 $i = 0
 foreach ($gid in @($allTasks.Keys)) {
     $i++
     if ($i % 50 -eq 0) { Write-Host "  [$i / $($allTasks.Count)]..." }
     try {
-        $url  = "$apiBase/tasks/$gid/time_tracking_entries?opt_fields=duration_minutes,entered_on&limit=100"
+        $url  = "$apiBase/tasks/$gid/time_tracking_entries?opt_fields=duration_minutes,entered_on,created_by.name&limit=100"
         $resp = Invoke-RestMethod $url -Headers $headers
         $tot  = 0
+        $loggers = [System.Collections.Generic.HashSet[string]]::new()
         foreach ($e in $resp.data) {
             if ($e.entered_on -and $e.entered_on -ge $Start -and $e.entered_on -le $End) {
                 $tot += [int]$e.duration_minutes
+                if ($e.created_by -and $e.created_by.name) { [void]$loggers.Add([string]$e.created_by.name) }
             }
         }
-        if ($tot -gt 0) { $taskMinutes[$gid] = $tot }
+        if ($tot -gt 0) { $taskMinutes[$gid] = $tot; $taskLoggers[$gid] = ($loggers -join ', ') }
     } catch {}
 }
 Write-Host "Tasks with tracked time in period: $($taskMinutes.Count)"
@@ -288,10 +291,11 @@ foreach ($projGid in $CAS_NEW_GIDS) {
             $resp = Invoke-RestMethod $url -Headers $headers
             foreach ($task in $resp.data) {
                 $casExtraTasks[$task.gid] = @{
-                    name         = $task.name
-                    projGid      = $projGid
-                    completed    = [bool]$task.completed
-                    completed_at = if ($task.PSObject.Properties['completed_at'] -and $task.completed_at) { [string]$task.completed_at } else { "" }
+                    name          = $task.name
+                    projGid       = $projGid
+                    completed     = [bool]$task.completed
+                    completed_at  = if ($task.PSObject.Properties['completed_at'] -and $task.completed_at) { [string]$task.completed_at } else { "" }
+                    permalink_url = if ($task.PSObject.Properties['permalink_url']) { $task.permalink_url } else { "" }
                 }
             }
             $offset = if ($resp.next_page -and $resp.next_page.offset) { $resp.next_page.offset } else { $null }
@@ -301,21 +305,26 @@ foreach ($projGid in $CAS_NEW_GIDS) {
 Write-Host "  New CAS.* projects: $($casExtraTasks.Count) tasks"
 
 $casExtraMinutes = @{}
+$casExtraLoggers = @{}
 foreach ($gid in @($casExtraTasks.Keys)) {
     try {
-        $url  = "$apiBase/tasks/$gid/time_tracking_entries?opt_fields=duration_minutes,entered_on&limit=100"
+        $url  = "$apiBase/tasks/$gid/time_tracking_entries?opt_fields=duration_minutes,entered_on,created_by.name&limit=100"
         $resp = Invoke-RestMethod $url -Headers $headers
         $tot  = 0
+        $loggers = [System.Collections.Generic.HashSet[string]]::new()
         foreach ($e in $resp.data) {
-            if ($e.entered_on -and $e.entered_on -ge $Start -and $e.entered_on -le $End) { $tot += [int]$e.duration_minutes }
+            if ($e.entered_on -and $e.entered_on -ge $Start -and $e.entered_on -le $End) {
+                $tot += [int]$e.duration_minutes
+                if ($e.created_by -and $e.created_by.name) { [void]$loggers.Add([string]$e.created_by.name) }
+            }
         }
-        if ($tot -gt 0) { $casExtraMinutes[$gid] = $tot }
+        if ($tot -gt 0) { $casExtraMinutes[$gid] = $tot; $casExtraLoggers[$gid] = ($loggers -join ', ') }
     } catch {}
 }
 
 $rawProjStats = @{}
-foreach ($gid in $CAS_LABELS.Keys)      { $rawProjStats[$gid] = @{ name = $CAS_LABELS[$gid];      total = 0; hoursMin = 0 } }
-foreach ($gid in $BACKLOG_LABELS.Keys)  { $rawProjStats[$gid] = @{ name = $BACKLOG_LABELS[$gid];  total = 0; hoursMin = 0 } }
+foreach ($gid in $CAS_LABELS.Keys)      { $rawProjStats[$gid] = @{ name = $CAS_LABELS[$gid];      total = 0; hoursMin = 0; tasks = [System.Collections.Generic.List[object]]::new() } }
+foreach ($gid in $BACKLOG_LABELS.Keys)  { $rawProjStats[$gid] = @{ name = $BACKLOG_LABELS[$gid];  total = 0; hoursMin = 0; tasks = [System.Collections.Generic.List[object]]::new() } }
 
 # Unified with the rest of the report (header stat / trend chart): a task counts if it has actual
 # tracked time in the period (taskMinutes > 0 - Step 2.3's zero-minute status-based entries excluded),
@@ -332,6 +341,8 @@ foreach ($gid in @($allTasks.Keys)) {
     if (-not $homeGid) { continue }
     $rawProjStats[$homeGid].total++
     $rawProjStats[$homeGid].hoursMin += $taskMinutes[$gid]
+    $logger = if ($taskLoggers.ContainsKey($gid)) { $taskLoggers[$gid] } else { "" }
+    [void]$rawProjStats[$homeGid].tasks.Add(@{ name = $t.name; url = $t.permalink_url; hours = [math]::Round($taskMinutes[$gid] / 60.0, 2); logger = $logger })
 }
 
 # the 3 brand-new CAS.* projects
@@ -340,6 +351,8 @@ foreach ($gid in @($casExtraTasks.Keys)) {
     if (-not ($casExtraMinutes.ContainsKey($gid) -and $casExtraMinutes[$gid] -gt 0)) { continue }
     $rawProjStats[$t.projGid].total++
     $rawProjStats[$t.projGid].hoursMin += $casExtraMinutes[$gid]
+    $logger = if ($casExtraLoggers.ContainsKey($gid)) { $casExtraLoggers[$gid] } else { "" }
+    [void]$rawProjStats[$t.projGid].tasks.Add(@{ name = $t.name; url = $t.permalink_url; hours = [math]::Round($casExtraMinutes[$gid] / 60.0, 2); logger = $logger })
 }
 
 # Subtasks of CAS tasks: /projects/{gid}/tasks only returns top-level project members, subtasks
@@ -348,10 +361,11 @@ foreach ($gid in @($casExtraTasks.Keys)) {
 function Get-SubtasksRecursive([string]$taskGid) {
     $out = [System.Collections.Generic.List[object]]::new()
     try {
-        $resp = Invoke-RestMethod "$apiBase/tasks/$taskGid/subtasks?opt_fields=gid,assignee.name&limit=100" -Headers $headers
+        $resp = Invoke-RestMethod "$apiBase/tasks/$taskGid/subtasks?opt_fields=gid,name,assignee.name,permalink_url&limit=100" -Headers $headers
         foreach ($st in $resp.data) {
             $assignee = if ($st.PSObject.Properties['assignee'] -and $st.assignee -and $st.assignee.name) { $st.assignee.name } else { "" }
-            [void]$out.Add(@{ gid = $st.gid; assignee = $assignee })
+            $url      = if ($st.PSObject.Properties['permalink_url']) { $st.permalink_url } else { "" }
+            [void]$out.Add(@{ gid = $st.gid; name = $st.name; assignee = $assignee; url = $url })
             foreach ($nested in (Get-SubtasksRecursive $st.gid)) { [void]$out.Add($nested) }
         }
     } catch {}
@@ -377,15 +391,20 @@ foreach ($parentGid in @($casTaskHome.Keys)) {
         $subFound++
         if ($EXCLUDED_ASSIGNEES -contains $sub.assignee) { continue }
         try {
-            $url  = "$apiBase/tasks/$sgid/time_tracking_entries?opt_fields=duration_minutes,entered_on&limit=100"
+            $url  = "$apiBase/tasks/$sgid/time_tracking_entries?opt_fields=duration_minutes,entered_on,created_by.name&limit=100"
             $resp = Invoke-RestMethod $url -Headers $headers
             $tot = 0
+            $loggers = [System.Collections.Generic.HashSet[string]]::new()
             foreach ($e in $resp.data) {
-                if ($e.entered_on -and $e.entered_on -ge $Start -and $e.entered_on -le $End) { $tot += [int]$e.duration_minutes }
+                if ($e.entered_on -and $e.entered_on -ge $Start -and $e.entered_on -le $End) {
+                    $tot += [int]$e.duration_minutes
+                    if ($e.created_by -and $e.created_by.name) { [void]$loggers.Add([string]$e.created_by.name) }
+                }
             }
             if ($tot -gt 0) {
                 $rawProjStats[$homeGid].total++
                 $rawProjStats[$homeGid].hoursMin += $tot
+                [void]$rawProjStats[$homeGid].tasks.Add(@{ name = $sub.name; url = $sub.url; hours = [math]::Round($tot / 60.0, 2); isSub = $true; logger = ($loggers -join ', ') })
                 $subCounted++
             }
         } catch {}
@@ -992,6 +1011,25 @@ if ($rawProjStats -and $rawProjStats.Count -gt 0) {
     }
     [void]$L.Add('      <tr class="total-row"><td>&#1048;&#1058;&#1054;&#1043;&#1054;</td><td>' + $casTotalCount + '</td><td>100%</td><td>' + (Fmt $casHoursTotal) + '</td></tr>')
     [void]$L.Add('    </table>')
+
+    [void]$L.Add('    <div style="color:#a0aec0;font-size:12px;margin:14px 0 10px;">&#1050;&#1083;&#1080;&#1082; &#1087;&#1086; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1091; &#8212; &#1089;&#1087;&#1080;&#1089;&#1086;&#1082; &#1079;&#1072;&#1076;&#1072;&#1095; &#1080; &#1087;&#1086;&#1076;&#1079;&#1072;&#1076;&#1072;&#1095; (&#8618;) &#1089; &#1079;&#1072;&#1083;&#1086;&#1075;&#1080;&#1088;&#1086;&#1074;&#1072;&#1085;&#1085;&#1099;&#1084; &#1074;&#1088;&#1077;&#1084;&#1077;&#1085;&#1077;&#1084; &#1074; &#1087;&#1077;&#1088;&#1080;&#1086;&#1076;&#1077;.</div>')
+    foreach ($gid in $CAS_LABELS.Keys) {
+        $rs = $rawProjStats[$gid]
+        [void]$L.Add('    <details><summary>' + $rs.name + '&nbsp;&nbsp;<span style="color:#718096;font-weight:400">' + $rs.total + ' &#1079;&#1072;&#1076;&#1072;&#1095; &mdash; ' + (Fmt ($rs.hoursMin/60.0)) + ' &#1095;</span></summary>')
+        [void]$L.Add('      <div class="detail-content"><table class="detail-table">')
+        [void]$L.Add('        <tr><th>&#1047;&#1072;&#1076;&#1072;&#1095;&#1072;</th><th>&#1047;&#1072;&#1083;&#1086;&#1075;&#1080;&#1088;&#1086;&#1074;&#1072;&#1083;</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th></tr>')
+        foreach ($tk in ($rs.tasks | Sort-Object { $_.hours } -Descending)) {
+            $tUrl    = if ($tk.url) { $tk.url } else { '#' }
+            $tName   = if ($tk.isSub) { '&#8618; ' + (Esc $tk.name) } else { (Esc $tk.name) }
+            $tLogger = if ($tk.logger) { (Esc $tk.logger) } else { '<span style="color:#a0aec0;">&mdash;</span>' }
+            [void]$L.Add('        <tr><td><a class="task-link" href="' + $tUrl + '" target="_blank">' + $tName + '</a></td><td>' + $tLogger + '</td><td class="hours">' + (Fmt $tk.hours) + '</td></tr>')
+        }
+        if ($rs.tasks.Count -eq 0) {
+            [void]$L.Add('        <tr><td colspan="3" style="color:#a0aec0;">&#1053;&#1077;&#1090; &#1079;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084; &#1074; &#1087;&#1077;&#1088;&#1080;&#1086;&#1076;&#1077;.</td></tr>')
+        }
+        [void]$L.Add('      </table></div>')
+        [void]$L.Add('    </details>')
+    }
 
     [void]$L.Add('    <div class="subsection-title" style="font-size:13px;font-weight:700;margin:20px 0 10px;color:#4a5568;text-transform:uppercase;letter-spacing:.4px;">&#1055;&#1086; &#1080;&#1075;&#1088;&#1086;&#1074;&#1099;&#1084; (backlog) &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084; ART</div>')
     [void]$L.Add('    <table class="summary-table"><tr><th>&#1055;&#1088;&#1086;&#1077;&#1082;&#1090;</th><th>&#1047;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</th><th>%</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th></tr>')
