@@ -30,25 +30,35 @@ $PAT     = (Get-Content "$BASE\asana_pat.txt" -Raw).Trim()
 $headers = @{ Authorization = "Bearer $PAT" }
 $apiBase = "https://app.asana.com/api/1.0"
 
-$ART_GIDs = @(
-    "1213598068805254",
-    "1213598068805258",
-    "1213599181255288",
-    "1213599181255292",
-    "1213910439454138",
-    "1213910439713691",
-    "1213911620513682",
-    "1213911895502718",
-    "1213993120177405",
-    "1213879913329451"
-)
 $ART_DIRECTION = @{
     "1213598068805254"="2D Art / UI"; "1213598068805258"="3D Art"
     "1213599181255288"="VFX";         "1213599181255292"="Animations"
     "1213910439454138"="ASO Icons";   "1213910439713691"="ASO Screenshots"
     "1213911620513682"="ASO CPP";     "1213911895502718"="ASO In App Events"
     "1213993120177405"="Banner ADS";  "1213879913329451"="CAS Requests"
+    # newer CAS.* projects added to the portfolio after the original 10 - folded into the same
+    # "CAS Requests" dept-grid plate so the established 5x2 grid layout doesn't need new slots
+    "1216704431904924"="CAS Requests"; "1216704431904918"="CAS Requests"; "1216704431904914"="CAS Requests"
 }
+
+# ART portfolio membership is fetched live (not hardcoded) so newly added/removed projects are
+# picked up automatically - Roman's request 04.08.2026 after the portfolio grew from 10 to 13 projects.
+$ART_PORTFOLIO_GID = "1213829329062998"
+$portfolioItems = [ordered]@{}
+try {
+    $resp = Invoke-RestMethod "$apiBase/portfolios/$ART_PORTFOLIO_GID/items?opt_fields=gid,name,resource_type,archived&limit=100" -Headers $headers
+    foreach ($item in $resp.data) {
+        if ($item.resource_type -eq "project" -and -not [bool]$item.archived) { $portfolioItems[$item.gid] = $item.name }
+    }
+} catch { Write-Host "  ERROR fetching ART portfolio: $_" }
+$ART_GIDs = @($portfolioItems.Keys)
+if ($ART_GIDs.Count -eq 0) {
+    Write-Host "  WARNING: ART portfolio fetch returned 0 projects, falling back to the last-known hardcoded list"
+    $ART_GIDs = @("1213598068805254","1213598068805258","1213599181255288","1213599181255292",
+                  "1213910439454138","1213910439713691","1213911620513682","1213911895502718",
+                  "1213993120177405","1213879913329451","1216704431904924","1216704431904918","1216704431904914")
+}
+Write-Host "  ART portfolio: $($ART_GIDs.Count) projects"
 $ART_GID_SET = @{}
 foreach ($g in $ART_GIDs) { $ART_GID_SET[$g] = $true }
 
@@ -63,10 +73,40 @@ $TARGET_STATUSES  = @{
 $EXCLUDED_ASSIGNEES = @('Roman Merezhko')
 
 # ============================================================
-# STEP 1 - Collect tasks from 10 ART projects
+# STEP 1 - Collect tasks (+ all subtasks, any depth) from every ART-portfolio project
 # ============================================================
-Write-Host "`n[1/3] Collecting tasks from 10 ART projects..."
+Write-Host "`n[1/3] Collecting tasks from $($ART_GIDs.Count) ART portfolio projects..."
 $allTasks = @{}
+
+# Subtasks aren't project members (/projects/{gid}/tasks never returns them), so every task
+# collected below is expanded recursively. Subtasks inherit the top-level ancestor's project
+# membership - this makes every downstream step (hours, dept-grid, attribution, CAS-vs-game,
+# employees) treat subtasks exactly like any other task, under the same conditions everywhere.
+# Roman's request 04.08.2026: no more per-section inconsistency in what counts as "a task".
+function Add-SubtasksRecursive([string]$parentGid, [array]$inheritedMems) {
+    try {
+        $resp = Invoke-RestMethod "$apiBase/tasks/$parentGid/subtasks?opt_fields=gid,name,assignee.name,permalink_url,custom_fields.gid,custom_fields.enum_value.gid&limit=100" -Headers $headers
+        foreach ($st in $resp.data) {
+            if ($allTasks.ContainsKey($st.gid)) { continue }
+            $sStatusGid = ""
+            if ($st.PSObject.Properties['custom_fields'] -and $st.custom_fields) {
+                $sf = $st.custom_fields | Where-Object { $_.gid -eq $STATUS_FIELD_GID }
+                if ($sf -and $sf.enum_value -and $sf.enum_value.gid) { $sStatusGid = $sf.enum_value.gid }
+            }
+            $allTasks[$st.gid] = @{
+                name          = $st.name
+                assignee      = if ($st.PSObject.Properties['assignee'] -and $st.assignee -and $st.assignee.name) { $st.assignee.name } else { "Unassigned" }
+                permalink_url = if ($st.PSObject.Properties['permalink_url']) { $st.permalink_url } else { "" }
+                memberships   = $inheritedMems
+                status_gid    = $sStatusGid
+                completed     = $false
+                completed_at  = ""
+                isSub         = $true
+            }
+            Add-SubtasksRecursive $st.gid $inheritedMems
+        }
+    } catch {}
+}
 
 foreach ($projGid in $ART_GIDs) {
     $offset   = $null
@@ -99,8 +139,10 @@ foreach ($projGid in $ART_GIDs) {
                         status_gid    = $statusGid
                         completed     = [bool]$task.completed
                         completed_at  = if ($task.PSObject.Properties['completed_at'] -and $task.completed_at) { [string]$task.completed_at } else { "" }
+                        isSub         = $false
                     }
                     $newCount++
+                    Add-SubtasksRecursive $task.gid $mems
                 }
             }
             $offset = if ($resp.next_page -and $resp.next_page.offset) { $resp.next_page.offset } else { $null }
@@ -261,28 +303,22 @@ Write-Host "Saved: $jsonFile  ($($processed.Count) tasks)"
 # STEP 3.7 - CAS (internal requests) vs game-project (ART backlog) breakdown
 # ============================================================
 Write-Host "`n[3.7] CAS vs game-project breakdown (tasks with tracking in period)..."
-$CAS_LABELS = [ordered]@{
-    "1213879913329451" = "CAS.product"
-    "1216704431904924" = "CAS.the_rest (one pager, &#1087;&#1088;&#1077;&#1079;&#1077;&#1085;&#1090;&#1072;&#1094;&#1110;&#1111;, &#1090;&#1086;&#1097;&#1086;)"
-    "1216704431904918" = "CAS.ads (web+&#1073;&#1083;&#1086;&#1075;)"
-    "1216704431904914" = "CAS.socialmedia (SMM)"
-}
-$CAS_NEW_GIDS = @("1216704431904924", "1216704431904918", "1216704431904914")
-$BACKLOG_LABELS = [ordered]@{
-    "1213598068805254" = "2D Art | UX/UI Design: Backlog"
-    "1213598068805258" = "3D Art: Backlog"
-    "1213599181255292" = "Animations: Backlog"
-    "1213599181255288" = "VFX: Backlog"
-    "1213993120177405" = "Banner ADS"
-    "1213911895502718" = "ASO In App Events (Promo)"
-    "1213911620513682" = "ASO Custom Product Pages (CPP)"
-    "1213910439713691" = "ASO Screenshots"
-    "1213910439454138" = "ASO Icons"
-}
 
-# Fetch the 3 brand-new CAS.* projects (not part of the main 10-project ART portfolio pipeline)
+# Reuse the ART portfolio membership already fetched at the top of the script (drives $ART_GIDs
+# too). A project counts as "CAS" if its name starts with "CAS" - everything else is "game" work.
+$CAS_LABELS = [ordered]@{}
+$BACKLOG_LABELS = [ordered]@{}
+foreach ($gid in $portfolioItems.Keys) {
+    $nm = $portfolioItems[$gid]
+    if ($nm -like "CAS*") { $CAS_LABELS[$gid] = $nm } else { $BACKLOG_LABELS[$gid] = $nm }
+}
+Write-Host "  ART portfolio: $($CAS_LABELS.Count) CAS + $($BACKLOG_LABELS.Count) game projects"
+
+# Projects in the portfolio that the main 10-project pipeline (Steps 1-2) doesn't already cover
+# need their own fresh fetch (tasks + time entries).
+$portfolioExtraGids = @($CAS_LABELS.Keys) + @($BACKLOG_LABELS.Keys) | Where-Object { -not $ART_GID_SET.ContainsKey($_) }
 $casExtraTasks = @{}
-foreach ($projGid in $CAS_NEW_GIDS) {
+foreach ($projGid in $portfolioExtraGids) {
     $offset = $null
     do {
         $url = "$apiBase/projects/$projGid/tasks?opt_fields=gid,name,completed,completed_at,permalink_url&limit=100"
@@ -299,10 +335,10 @@ foreach ($projGid in $CAS_NEW_GIDS) {
                 }
             }
             $offset = if ($resp.next_page -and $resp.next_page.offset) { $resp.next_page.offset } else { $null }
-        } catch { Write-Host "  ERROR CAS project $projGid : $_"; $offset = $null }
+        } catch { Write-Host "  ERROR portfolio project $projGid : $_"; $offset = $null }
     } while ($offset)
 }
-Write-Host "  New CAS.* projects: $($casExtraTasks.Count) tasks"
+Write-Host "  Extra portfolio projects: $($portfolioExtraGids.Count) projects, $($casExtraTasks.Count) tasks"
 
 $casExtraMinutes = @{}
 $casExtraLoggers = @{}
@@ -342,10 +378,13 @@ foreach ($gid in @($allTasks.Keys)) {
     $rawProjStats[$homeGid].total++
     $rawProjStats[$homeGid].hoursMin += $taskMinutes[$gid]
     $logger = if ($taskLoggers.ContainsKey($gid)) { $taskLoggers[$gid] } else { "" }
-    [void]$rawProjStats[$homeGid].tasks.Add(@{ name = $t.name; url = $t.permalink_url; hours = [math]::Round($taskMinutes[$gid] / 60.0, 2); logger = $logger })
+    $isSub  = [bool]$t.isSub
+    [void]$rawProjStats[$homeGid].tasks.Add(@{ name = $t.name; url = $t.permalink_url; hours = [math]::Round($taskMinutes[$gid] / 60.0, 2); logger = $logger; isSub = $isSub })
 }
 
-# the 3 brand-new CAS.* projects
+# the portfolio projects outside the main pipeline (defensive fallback - currently always empty
+# since $ART_GIDs already covers every portfolio project; kept in case the portfolio ever adds a
+# project this run's own fetch races past)
 foreach ($gid in @($casExtraTasks.Keys)) {
     $t = $casExtraTasks[$gid]
     if (-not ($casExtraMinutes.ContainsKey($gid) -and $casExtraMinutes[$gid] -gt 0)) { continue }
@@ -354,63 +393,6 @@ foreach ($gid in @($casExtraTasks.Keys)) {
     $logger = if ($casExtraLoggers.ContainsKey($gid)) { $casExtraLoggers[$gid] } else { "" }
     [void]$rawProjStats[$t.projGid].tasks.Add(@{ name = $t.name; url = $t.permalink_url; hours = [math]::Round($casExtraMinutes[$gid] / 60.0, 2); logger = $logger })
 }
-
-# Subtasks of CAS tasks: /projects/{gid}/tasks only returns top-level project members, subtasks
-# aren't project members and would otherwise be silently dropped. Recurse into every CAS-project
-# task's subtasks (any depth) and count each one that has its own tracked time in the period.
-function Get-SubtasksRecursive([string]$taskGid) {
-    $out = [System.Collections.Generic.List[object]]::new()
-    try {
-        $resp = Invoke-RestMethod "$apiBase/tasks/$taskGid/subtasks?opt_fields=gid,name,assignee.name,permalink_url&limit=100" -Headers $headers
-        foreach ($st in $resp.data) {
-            $assignee = if ($st.PSObject.Properties['assignee'] -and $st.assignee -and $st.assignee.name) { $st.assignee.name } else { "" }
-            $url      = if ($st.PSObject.Properties['permalink_url']) { $st.permalink_url } else { "" }
-            [void]$out.Add(@{ gid = $st.gid; name = $st.name; assignee = $assignee; url = $url })
-            foreach ($nested in (Get-SubtasksRecursive $st.gid)) { [void]$out.Add($nested) }
-        }
-    } catch {}
-    return $out
-}
-
-$casTaskHome = @{}
-foreach ($gid in @($allTasks.Keys)) {
-    $t = $allTasks[$gid]
-    foreach ($m in $t.memberships) {
-        if ($m.gid -eq "1213879913329451") { $casTaskHome[$gid] = $m.gid; break }
-    }
-}
-foreach ($gid in @($casExtraTasks.Keys)) { $casTaskHome[$gid] = $casExtraTasks[$gid].projGid }
-
-Write-Host "  Scanning subtasks of $($casTaskHome.Count) CAS tasks..."
-$subFound = 0; $subCounted = 0
-foreach ($parentGid in @($casTaskHome.Keys)) {
-    $homeGid = $casTaskHome[$parentGid]
-    foreach ($sub in (Get-SubtasksRecursive $parentGid)) {
-        $sgid = $sub.gid
-        if ($allTasks.ContainsKey($sgid) -or $casExtraTasks.ContainsKey($sgid)) { continue }  # already counted as a top-level member
-        $subFound++
-        if ($EXCLUDED_ASSIGNEES -contains $sub.assignee) { continue }
-        try {
-            $url  = "$apiBase/tasks/$sgid/time_tracking_entries?opt_fields=duration_minutes,entered_on,created_by.name&limit=100"
-            $resp = Invoke-RestMethod $url -Headers $headers
-            $tot = 0
-            $loggers = [System.Collections.Generic.HashSet[string]]::new()
-            foreach ($e in $resp.data) {
-                if ($e.entered_on -and $e.entered_on -ge $Start -and $e.entered_on -le $End) {
-                    $tot += [int]$e.duration_minutes
-                    if ($e.created_by -and $e.created_by.name) { [void]$loggers.Add([string]$e.created_by.name) }
-                }
-            }
-            if ($tot -gt 0) {
-                $rawProjStats[$homeGid].total++
-                $rawProjStats[$homeGid].hoursMin += $tot
-                [void]$rawProjStats[$homeGid].tasks.Add(@{ name = $sub.name; url = $sub.url; hours = [math]::Round($tot / 60.0, 2); isSub = $true; logger = ($loggers -join ', ') })
-                $subCounted++
-            }
-        } catch {}
-    }
-}
-Write-Host "  Subtasks found: $subFound, counted (tracked in period): $subCounted"
 
 $casTotalCount = 0; $casHoursTotal = 0.0
 foreach ($gid in $CAS_LABELS.Keys) { $casTotalCount += $rawProjStats[$gid].total; $casHoursTotal += $rawProjStats[$gid].hoursMin / 60.0 }
