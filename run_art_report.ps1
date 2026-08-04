@@ -59,6 +59,9 @@ $TARGET_STATUSES  = @{
     "1213634616829012" = "In test"
 }
 
+# Excluded from all report aggregations (PM oversight, not art production work) - Roman's request 04.08.2026
+$EXCLUDED_ASSIGNEES = @('Roman Merezhko')
+
 # ============================================================
 # STEP 1 - Collect tasks from 10 ART projects
 # ============================================================
@@ -159,6 +162,9 @@ try {
     $resp = Invoke-RestMethod "$apiBase/teams/$TEAM_GID/users?opt_fields=name&limit=100" -Headers $headers
     foreach ($u in $resp.data) { $teamMembers[$u.gid] = $u.name }
 } catch { Write-Host "  ERROR fetching team members: $_" }
+foreach ($exGid in @($teamMembers.Keys)) {
+    if ($EXCLUDED_ASSIGNEES -contains $teamMembers[$exGid]) { $teamMembers.Remove($exGid) }
+}
 Write-Host "  Team members: $($teamMembers.Count)"
 
 $candidates = @{}
@@ -256,6 +262,7 @@ $dataObj = $rawJson | ConvertFrom-Json
 $tasks2  = @{}
 foreach ($prop in $dataObj.PSObject.Properties) {
     $t = $prop.Value
+    if ($EXCLUDED_ASSIGNEES -contains [string]$t.assignee) { continue }
     $tasks2[$prop.Name] = @{
         name               = [string]$t.name
         assignee           = [string]$t.assignee
@@ -302,6 +309,47 @@ function Status-Pill([string]$sn) {
         'In test'        { '<span class="status-pill sp-in-test">In test</span>' }
         default          { '' }
     }
+}
+function Build-TrendSvg([array]$points) {
+    $W = 1000; $H = 260
+    $padL = 50; $padR = 30; $padT = 20; $padB = 40
+    $plotW = $W - $padL - $padR
+    $plotH = $H - $padT - $padB
+    $vmax = ($points | ForEach-Object { $_.Value } | Measure-Object -Maximum).Maximum
+    if ($vmax -le 0) { $vmax = 1 }
+    $top = 50 * ([math]::Floor($vmax / 50) + 1)
+    $n = $points.Count
+    $step = if ($n -gt 1) { $plotW / ($n - 1) } else { 0 }
+
+    $svg = [System.Collections.Generic.List[string]]::new()
+    [void]$svg.Add('<svg viewBox="0 0 ' + $W + ' ' + $H + '" width="100%" height="' + $H + '" role="img" aria-label="&#1044;&#1080;&#1085;&#1072;&#1084;&#1080;&#1082;&#1072; &#1079;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084; &#1087;&#1086; &#1084;&#1077;&#1089;&#1103;&#1094;&#1072;&#1084;">')
+
+    for ($g = 0; $g -le 4; $g++) {
+        $val = [math]::Round($top * $g / 4)
+        $y = $padT + $plotH - ($val / $top * $plotH)
+        [void]$svg.Add('<line x1="' + $padL + '" y1="' + [math]::Round($y,1) + '" x2="' + ($W-$padR) + '" y2="' + [math]::Round($y,1) + '" stroke="#e2e8f0" stroke-width="1"/>')
+        [void]$svg.Add('<text x="' + ($padL-10) + '" y="' + [math]::Round($y+4,1) + '" font-size="11" fill="#a0aec0" text-anchor="end" font-family="-apple-system,Segoe UI,sans-serif">' + $val + '</text>')
+    }
+
+    $pts = @()
+    for ($i = 0; $i -lt $n; $i++) {
+        $px = $padL + $step * $i
+        $py = $padT + $plotH - ($points[$i].Value / $top * $plotH)
+        $pts += @{x=$px; y=$py; label=$points[$i].Label; v=$points[$i].Value}
+    }
+
+    $pathD = 'M ' + (($pts | ForEach-Object { [string][math]::Round($_.x,1) + ',' + [string][math]::Round($_.y,1) }) -join ' L ')
+    [void]$svg.Add('<path d="' + $pathD + '" fill="none" stroke="#667eea" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>')
+
+    foreach ($p in $pts) {
+        $xr = [math]::Round($p.x,1); $yr = [math]::Round($p.y,1)
+        [void]$svg.Add('<circle cx="' + $xr + '" cy="' + $yr + '" r="5" fill="#667eea" stroke="white" stroke-width="2"><title>' + (Esc $p.label) + ': ' + $p.v + ' &#1079;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</title></circle>')
+        [void]$svg.Add('<text x="' + $xr + '" y="' + [math]::Round($p.y-14,1) + '" font-size="13" font-weight="700" fill="#2d3748" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif">' + $p.v + '</text>')
+        [void]$svg.Add('<text x="' + $xr + '" y="' + ($H-10) + '" font-size="12" fill="#718096" text-anchor="middle" font-family="-apple-system,Segoe UI,sans-serif">' + (Esc $p.label) + '</text>')
+    }
+
+    [void]$svg.Add('</svg>')
+    return ($svg -join '')
 }
 
 # Aggregate
@@ -597,7 +645,7 @@ if ($prevData2 -and $prevPeriodLbl) {
     $prevPP = @{}
     foreach ($prop0 in $prevData2.PSObject.Properties) {
         $t0 = $prop0.Value; $who0 = [string]$t0.assignee
-        if ($who0 -eq 'Unassigned') { continue }
+        if ($who0 -eq 'Unassigned' -or $EXCLUDED_ASSIGNEES -contains $who0) { continue }
         if (-not $prevPP[$who0]) { $prevPP[$who0] = @{tasks=0;hours=0.0} }
         $prevPP[$who0].tasks++
         $prevPP[$who0].hours += [double]$t0.hours
@@ -727,6 +775,40 @@ if ($prevData2 -and $prevPeriodLbl) {
         [void]$L.Add('      </tr>')
     }
     [void]$L.Add('    </tbody></table>')
+    [void]$L.Add('</div>')
+}
+
+# ============================================================
+# TREND SECTION (tasks with tracking, April 2026 -> current period)
+# ============================================================
+$ruMonths = @('&#1071;&#1085;&#1074;&#1072;&#1088;&#1100;','&#1060;&#1077;&#1074;&#1088;&#1072;&#1083;&#1100;','&#1052;&#1072;&#1088;&#1090;','&#1040;&#1087;&#1088;&#1077;&#1083;&#1100;','&#1052;&#1072;&#1081;','&#1048;&#1102;&#1085;&#1100;',
+              '&#1048;&#1102;&#1083;&#1100;','&#1040;&#1074;&#1075;&#1091;&#1089;&#1090;','&#1057;&#1077;&#1085;&#1090;&#1103;&#1073;&#1088;&#1100;','&#1054;&#1082;&#1090;&#1103;&#1073;&#1088;&#1100;','&#1053;&#1086;&#1103;&#1073;&#1088;&#1100;','&#1044;&#1077;&#1082;&#1072;&#1073;&#1088;&#1100;')
+$trendStart    = [datetime]::new(2026,4,1)
+$curPeriodDate = [datetime]::ParseExact($Start,'yyyy-MM-dd',$null)
+$trendPoints   = @()
+$md = $trendStart
+while ($md -le $curPeriodDate) {
+    $mk = $md.ToString('yyyy-MM')
+    $mf = "$BASE\time_data_$mk.json"
+    if (Test-Path $mf) {
+        $mdata = Get-Content $mf -Raw -Encoding utf8 | ConvertFrom-Json
+        $cnt = 0
+        foreach ($mprop in $mdata.PSObject.Properties) {
+            $tv = $mprop.Value
+            if ($EXCLUDED_ASSIGNEES -contains [string]$tv.assignee) { continue }
+            $isSBv = if ($tv.PSObject.Properties['is_status_based']) { [bool]$tv.is_status_based } else { $false }
+            if (-not [bool]$tv.external -and -not $isSBv) { $cnt++ }
+        }
+        $trendPoints += @{ Label = $ruMonths[$md.Month-1]; Value = $cnt }
+    }
+    $md = $md.AddMonths(1)
+}
+
+if ($trendPoints.Count -ge 2) {
+    [void]$L.Add('<div class="card">')
+    [void]$L.Add('  <div class="section-title">&#1044;&#1080;&#1085;&#1072;&#1084;&#1080;&#1082;&#1072; &#1087;&#1086; &#1084;&#1077;&#1089;&#1103;&#1094;&#1072;&#1084; &#8212; &#1079;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</div>')
+    [void]$L.Add('  ' + (Build-TrendSvg $trendPoints))
+    [void]$L.Add('  <div style="color:#a0aec0;font-size:12px;margin-top:8px;">&#1052;&#1077;&#1090;&#1088;&#1080;&#1082;&#1072; &#8212; &#1090;&#1072; &#1078;&#1077;, &#1095;&#1090;&#1086; &#1074; &#1096;&#1072;&#1087;&#1082;&#1077; &#1082;&#1072;&#1078;&#1076;&#1086;&#1075;&#1086; &#1084;&#1077;&#1089;&#1103;&#1095;&#1085;&#1086;&#1075;&#1086; &#1086;&#1090;&#1095;&#1105;&#1090;&#1072; (&laquo;&#1047;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;&raquo;): &#1087;&#1086;&#1088;&#1090;&#1092;&#1077;&#1083;&#1100;&#1085;&#1099;&#1077; &#1079;&#1072;&#1076;&#1072;&#1095;&#1080; ART &#1089; &#1092;&#1072;&#1082;&#1090;&#1080;&#1095;&#1077;&#1089;&#1082;&#1080; &#1079;&#1072;&#1083;&#1086;&#1075;&#1080;&#1088;&#1086;&#1074;&#1072;&#1085;&#1085;&#1099;&#1084; &#1074;&#1088;&#1077;&#1084;&#1077;&#1085;&#1077;&#1084; &#1074; &#1087;&#1077;&#1088;&#1080;&#1086;&#1076;&#1077;.</div>')
     [void]$L.Add('</div>')
 }
 
