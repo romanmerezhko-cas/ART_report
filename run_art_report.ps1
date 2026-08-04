@@ -257,11 +257,11 @@ Write-Host "Saved: $jsonFile  ($($processed.Count) tasks)"
 # ============================================================
 # STEP 3.7 - CAS (internal requests) vs game-project (ART backlog) breakdown
 # ============================================================
-Write-Host "`n[3.7] CAS vs game-project breakdown (native Asana completion)..."
+Write-Host "`n[3.7] CAS vs game-project breakdown (tasks with tracking in period)..."
 $CAS_LABELS = [ordered]@{
     "1213879913329451" = "CAS.product"
-    "1216704431904924" = "CAS.the_rest (one pager, презентації, тощо)"
-    "1216704431904918" = "CAS.ads (web+блог)"
+    "1216704431904924" = "CAS.the_rest (one pager, &#1087;&#1088;&#1077;&#1079;&#1077;&#1085;&#1090;&#1072;&#1094;&#1110;&#1111;, &#1090;&#1086;&#1097;&#1086;)"
+    "1216704431904918" = "CAS.ads (web+&#1073;&#1083;&#1086;&#1075;)"
     "1216704431904914" = "CAS.socialmedia (SMM)"
 }
 $CAS_NEW_GIDS = @("1216704431904924", "1216704431904918", "1216704431904914")
@@ -313,43 +313,91 @@ foreach ($gid in @($casExtraTasks.Keys)) {
     } catch {}
 }
 
-function Closed-InPeriod($completed, $completedAt) {
-    if (-not $completed -or -not $completedAt) { return $false }
-    $d = $completedAt.Substring(0, 10)
-    return ($d -ge $Start -and $d -le $End)
-}
-
 $rawProjStats = @{}
-foreach ($gid in $CAS_LABELS.Keys)      { $rawProjStats[$gid] = @{ name = $CAS_LABELS[$gid];      closed = 0; hoursMin = 0 } }
-foreach ($gid in $BACKLOG_LABELS.Keys)  { $rawProjStats[$gid] = @{ name = $BACKLOG_LABELS[$gid];  closed = 0; hoursMin = 0 } }
+foreach ($gid in $CAS_LABELS.Keys)      { $rawProjStats[$gid] = @{ name = $CAS_LABELS[$gid];      total = 0; hoursMin = 0 } }
+foreach ($gid in $BACKLOG_LABELS.Keys)  { $rawProjStats[$gid] = @{ name = $BACKLOG_LABELS[$gid];  total = 0; hoursMin = 0 } }
 
-# CAS.product + the 9 backlog projects: reuse the already-collected full task set (Step 1) and
-# period-filtered time entries (Step 2) - unconditional on tracking activity, so tasks closed
-# without any tracked time in the period are still counted
+# Unified with the rest of the report (header stat / trend chart): a task counts if it has actual
+# tracked time in the period (taskMinutes > 0 - Step 2.3's zero-minute status-based entries excluded),
+# same criterion as "Задач с трекингом". CAS.product + the 9 backlog projects reuse the already-
+# collected full task set (Step 1) and period-filtered time entries (Step 2).
 foreach ($gid in @($allTasks.Keys)) {
     $t = $allTasks[$gid]
     if ($EXCLUDED_ASSIGNEES -contains $t.assignee) { continue }
+    if (-not ($taskMinutes.ContainsKey($gid) -and $taskMinutes[$gid] -gt 0)) { continue }
     $homeGid = $null
     foreach ($m in $t.memberships) {
         if ($rawProjStats.ContainsKey($m.gid)) { $homeGid = $m.gid; break }
     }
     if (-not $homeGid) { continue }
-    if (Closed-InPeriod $t.completed $t.completed_at) { $rawProjStats[$homeGid].closed++ }
-    if ($taskMinutes.ContainsKey($gid)) { $rawProjStats[$homeGid].hoursMin += $taskMinutes[$gid] }
+    $rawProjStats[$homeGid].total++
+    $rawProjStats[$homeGid].hoursMin += $taskMinutes[$gid]
 }
 
 # the 3 brand-new CAS.* projects
 foreach ($gid in @($casExtraTasks.Keys)) {
     $t = $casExtraTasks[$gid]
-    if (Closed-InPeriod $t.completed $t.completed_at) { $rawProjStats[$t.projGid].closed++ }
-    if ($casExtraMinutes.ContainsKey($gid)) { $rawProjStats[$t.projGid].hoursMin += $casExtraMinutes[$gid] }
+    if (-not ($casExtraMinutes.ContainsKey($gid) -and $casExtraMinutes[$gid] -gt 0)) { continue }
+    $rawProjStats[$t.projGid].total++
+    $rawProjStats[$t.projGid].hoursMin += $casExtraMinutes[$gid]
 }
 
-$casClosedTotal = 0; $casHoursTotal = 0.0
-foreach ($gid in $CAS_LABELS.Keys) { $casClosedTotal += $rawProjStats[$gid].closed; $casHoursTotal += $rawProjStats[$gid].hoursMin / 60.0 }
-$backlogClosedTotal = 0; $backlogHoursTotal = 0.0
-foreach ($gid in $BACKLOG_LABELS.Keys) { $backlogClosedTotal += $rawProjStats[$gid].closed; $backlogHoursTotal += $rawProjStats[$gid].hoursMin / 60.0 }
-Write-Host "  CAS: $casClosedTotal closed / $([math]::Round($casHoursTotal,2)) h  |  Backlog: $backlogClosedTotal closed / $([math]::Round($backlogHoursTotal,2)) h"
+# Subtasks of CAS tasks: /projects/{gid}/tasks only returns top-level project members, subtasks
+# aren't project members and would otherwise be silently dropped. Recurse into every CAS-project
+# task's subtasks (any depth) and count each one that has its own tracked time in the period.
+function Get-SubtasksRecursive([string]$taskGid) {
+    $out = [System.Collections.Generic.List[object]]::new()
+    try {
+        $resp = Invoke-RestMethod "$apiBase/tasks/$taskGid/subtasks?opt_fields=gid,assignee.name&limit=100" -Headers $headers
+        foreach ($st in $resp.data) {
+            $assignee = if ($st.PSObject.Properties['assignee'] -and $st.assignee -and $st.assignee.name) { $st.assignee.name } else { "" }
+            [void]$out.Add(@{ gid = $st.gid; assignee = $assignee })
+            foreach ($nested in (Get-SubtasksRecursive $st.gid)) { [void]$out.Add($nested) }
+        }
+    } catch {}
+    return $out
+}
+
+$casTaskHome = @{}
+foreach ($gid in @($allTasks.Keys)) {
+    $t = $allTasks[$gid]
+    foreach ($m in $t.memberships) {
+        if ($m.gid -eq "1213879913329451") { $casTaskHome[$gid] = $m.gid; break }
+    }
+}
+foreach ($gid in @($casExtraTasks.Keys)) { $casTaskHome[$gid] = $casExtraTasks[$gid].projGid }
+
+Write-Host "  Scanning subtasks of $($casTaskHome.Count) CAS tasks..."
+$subFound = 0; $subCounted = 0
+foreach ($parentGid in @($casTaskHome.Keys)) {
+    $homeGid = $casTaskHome[$parentGid]
+    foreach ($sub in (Get-SubtasksRecursive $parentGid)) {
+        $sgid = $sub.gid
+        if ($allTasks.ContainsKey($sgid) -or $casExtraTasks.ContainsKey($sgid)) { continue }  # already counted as a top-level member
+        $subFound++
+        if ($EXCLUDED_ASSIGNEES -contains $sub.assignee) { continue }
+        try {
+            $url  = "$apiBase/tasks/$sgid/time_tracking_entries?opt_fields=duration_minutes,entered_on&limit=100"
+            $resp = Invoke-RestMethod $url -Headers $headers
+            $tot = 0
+            foreach ($e in $resp.data) {
+                if ($e.entered_on -and $e.entered_on -ge $Start -and $e.entered_on -le $End) { $tot += [int]$e.duration_minutes }
+            }
+            if ($tot -gt 0) {
+                $rawProjStats[$homeGid].total++
+                $rawProjStats[$homeGid].hoursMin += $tot
+                $subCounted++
+            }
+        } catch {}
+    }
+}
+Write-Host "  Subtasks found: $subFound, counted (tracked in period): $subCounted"
+
+$casTotalCount = 0; $casHoursTotal = 0.0
+foreach ($gid in $CAS_LABELS.Keys) { $casTotalCount += $rawProjStats[$gid].total; $casHoursTotal += $rawProjStats[$gid].hoursMin / 60.0 }
+$backlogTotalCount = 0; $backlogHoursTotal = 0.0
+foreach ($gid in $BACKLOG_LABELS.Keys) { $backlogTotalCount += $rawProjStats[$gid].total; $backlogHoursTotal += $rawProjStats[$gid].hoursMin / 60.0 }
+Write-Host "  CAS: $casTotalCount tasks / $([math]::Round($casHoursTotal,2)) h  |  Backlog: $backlogTotalCount tasks / $([math]::Round($backlogHoursTotal,2)) h"
 
 # ============================================================
 # STEP 4 - Generate HTML
@@ -917,42 +965,42 @@ if ($trendPoints.Count -ge 2) {
 # CAS vs GAME-PROJECT (ART backlog) SECTION
 # ============================================================
 if ($rawProjStats -and $rawProjStats.Count -gt 0) {
-    $grandClosed = $casClosedTotal + $backlogClosedTotal
+    $grandTotal  = $casTotalCount + $backlogTotalCount
     $grandHours  = $casHoursTotal + $backlogHoursTotal
-    $casClosedPct = if ($grandClosed -gt 0) { [math]::Round($casClosedTotal / $grandClosed * 100, 1) } else { 0 }
-    $bkClosedPct  = if ($grandClosed -gt 0) { [math]::Round($backlogClosedTotal / $grandClosed * 100, 1) } else { 0 }
-    $casHoursPct  = if ($grandHours -gt 0) { [math]::Round($casHoursTotal / $grandHours * 100, 1) } else { 0 }
-    $bkHoursPct   = if ($grandHours -gt 0) { [math]::Round($backlogHoursTotal / $grandHours * 100, 1) } else { 0 }
+    $casTotalPct = if ($grandTotal -gt 0) { [math]::Round($casTotalCount / $grandTotal * 100, 1) } else { 0 }
+    $bkTotalPct  = if ($grandTotal -gt 0) { [math]::Round($backlogTotalCount / $grandTotal * 100, 1) } else { 0 }
+    $casHoursPct = if ($grandHours -gt 0) { [math]::Round($casHoursTotal / $grandHours * 100, 1) } else { 0 }
+    $bkHoursPct  = if ($grandHours -gt 0) { [math]::Round($backlogHoursTotal / $grandHours * 100, 1) } else { 0 }
 
     [void]$L.Add('<details id="cas-vs-game">')
-    [void]$L.Add('  <summary><a href="#cas-vs-game" style="color:inherit;text-decoration:none;">CAS vs &#1080;&#1075;&#1088;&#1086;&#1074;&#1099;&#1077; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1099; ART</a>&nbsp;&nbsp;<span style="color:#718096;font-weight:400">' + $grandClosed + ' &#1079;&#1072;&#1082;&#1088;&#1099;&#1090;&#1099;&#1093; &#1079;&#1072;&#1076;&#1072;&#1095; &#1074; &#1087;&#1077;&#1088;&#1080;&#1086;&#1076;&#1077;</span></summary>')
+    [void]$L.Add('  <summary><a href="#cas-vs-game" style="color:inherit;text-decoration:none;">CAS vs &#1080;&#1075;&#1088;&#1086;&#1074;&#1099;&#1077; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1099; ART</a>&nbsp;&nbsp;<span style="color:#718096;font-weight:400">' + $grandTotal + ' &#1079;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</span></summary>')
     [void]$L.Add('  <div class="detail-content" style="padding:16px;background:white;">')
-    [void]$L.Add('    <div style="color:#a0aec0;font-size:12px;margin-bottom:14px;">&#171;&#1047;&#1072;&#1082;&#1088;&#1099;&#1090;&#1086;&#187; &mdash; &#1079;&#1072;&#1076;&#1072;&#1095;&#1072; &#1087;&#1086;&#1084;&#1077;&#1095;&#1077;&#1085;&#1072; &#1074;&#1099;&#1087;&#1086;&#1083;&#1085;&#1077;&#1085;&#1085;&#1086;&#1081; &#1074; Asana (native completed) &#1074; &#1087;&#1077;&#1088;&#1080;&#1086;&#1076;&#1077; ' + $StartDisp + ' &#8212; ' + $EndDisp + ' &#1085;&#1077;&#1079;&#1072;&#1074;&#1080;&#1089;&#1080;&#1084;&#1086; &#1086;&#1090; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1072;. &#1063;&#1072;&#1089;&#1099; &mdash; time_tracking_entries &#1079;&#1072; &#1090;&#1086;&#1090; &#1078;&#1077; &#1087;&#1077;&#1088;&#1080;&#1086;&#1076;, &#1082;&#1072;&#1082; &#1074; &#1086;&#1089;&#1090;&#1072;&#1083;&#1100;&#1085;&#1099;&#1093; &#1089;&#1077;&#1082;&#1094;&#1080;&#1103;&#1093; &#1086;&#1090;&#1095;&#1105;&#1090;&#1072;. CAS &mdash; &#1074;&#1085;&#1091;&#1090;&#1088;&#1077;&#1085;&#1085;&#1080;&#1077; &#1079;&#1072;&#1087;&#1088;&#1086;&#1089;&#1099; (&#1084;&#1072;&#1088;&#1082;&#1077;&#1090;&#1080;&#1085;&#1075;/&#1087;&#1088;&#1077;&#1079;&#1077;&#1085;&#1090;&#1072;&#1094;&#1080;&#1080;/&#1089;&#1086;&#1094;&#1089;&#1077;&#1090;&#1080;), &#1085;&#1077; &#1080;&#1075;&#1088;&#1086;&#1074;&#1086;&#1081; &#1072;&#1088;&#1090;-&#1087;&#1088;&#1086;&#1076;&#1072;&#1082;&#1096;&#1085;.</div>')
+    [void]$L.Add('    <div style="color:#a0aec0;font-size:12px;margin-bottom:14px;">&#1047;&#1072;&#1076;&#1072;&#1095;&#1080; &#1089; &#1092;&#1072;&#1082;&#1090;&#1080;&#1095;&#1077;&#1089;&#1082;&#1080; &#1079;&#1072;&#1083;&#1086;&#1075;&#1080;&#1088;&#1086;&#1074;&#1072;&#1085;&#1085;&#1099;&#1084; &#1074;&#1088;&#1077;&#1084;&#1077;&#1085;&#1077;&#1084; (time_tracking_entries) &#1074;&#1085;&#1091;&#1090;&#1088;&#1080; &#1087;&#1077;&#1088;&#1080;&#1086;&#1076;&#1072; ' + $StartDisp + ' &#8212; ' + $EndDisp + ' &#8212; &#1090;&#1086;&#1090; &#1078;&#1077; &#1082;&#1088;&#1080;&#1090;&#1077;&#1088;&#1080;&#1081;, &#1095;&#1090;&#1086; &#1080; &#171;&#1047;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;&#187; &#1074; &#1096;&#1072;&#1087;&#1082;&#1077; &#1086;&#1090;&#1095;&#1105;&#1090;&#1072; &#1080; &#1085;&#1072; &#1075;&#1088;&#1072;&#1092;&#1080;&#1082;&#1077; &#1076;&#1080;&#1085;&#1072;&#1084;&#1080;&#1082;&#1080;. CAS &mdash; &#1074;&#1085;&#1091;&#1090;&#1088;&#1077;&#1085;&#1085;&#1080;&#1077; &#1079;&#1072;&#1087;&#1088;&#1086;&#1089;&#1099; (&#1084;&#1072;&#1088;&#1082;&#1077;&#1090;&#1080;&#1085;&#1075;/&#1087;&#1088;&#1077;&#1079;&#1077;&#1085;&#1090;&#1072;&#1094;&#1080;&#1080;/&#1089;&#1086;&#1094;&#1089;&#1077;&#1090;&#1080;), &#1085;&#1077; &#1080;&#1075;&#1088;&#1086;&#1074;&#1086;&#1081; &#1072;&#1088;&#1090;-&#1087;&#1088;&#1086;&#1076;&#1072;&#1082;&#1096;&#1085;.</div>')
 
-    [void]$L.Add('    <table class="summary-table"><tr><th>&#1043;&#1088;&#1091;&#1087;&#1087;&#1072;</th><th>&#1047;&#1072;&#1082;&#1088;&#1099;&#1090;&#1086; &#1079;&#1072;&#1076;&#1072;&#1095;</th><th>% &#1079;&#1072;&#1076;&#1072;&#1095;</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th><th>% &#1095;&#1072;&#1089;&#1086;&#1074;</th></tr>')
-    [void]$L.Add('      <tr><td><strong>CAS (&#1074;&#1085;&#1091;&#1090;&#1088;&#1077;&#1085;&#1085;&#1080;&#1077; &#1079;&#1072;&#1087;&#1088;&#1086;&#1089;&#1099;)</strong></td><td>' + $casClosedTotal + '</td><td>' + $casClosedPct + '%</td><td>' + (Fmt $casHoursTotal) + '</td><td>' + $casHoursPct + '%</td></tr>')
-    [void]$L.Add('      <tr><td><strong>&#1048;&#1075;&#1088;&#1086;&#1074;&#1099;&#1077; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1099; ART (backlog)</strong></td><td>' + $backlogClosedTotal + '</td><td>' + $bkClosedPct + '%</td><td>' + (Fmt $backlogHoursTotal) + '</td><td>' + $bkHoursPct + '%</td></tr>')
-    [void]$L.Add('      <tr class="total-row"><td>&#1048;&#1058;&#1054;&#1043;&#1054;</td><td>' + $grandClosed + '</td><td>100%</td><td>' + (Fmt $grandHours) + '</td><td>100%</td></tr>')
+    [void]$L.Add('    <table class="summary-table"><tr><th>&#1043;&#1088;&#1091;&#1087;&#1087;&#1072;</th><th>&#1047;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</th><th>% &#1079;&#1072;&#1076;&#1072;&#1095;</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th><th>% &#1095;&#1072;&#1089;&#1086;&#1074;</th></tr>')
+    [void]$L.Add('      <tr><td><strong>CAS (&#1074;&#1085;&#1091;&#1090;&#1088;&#1077;&#1085;&#1085;&#1080;&#1077; &#1079;&#1072;&#1087;&#1088;&#1086;&#1089;&#1099;)</strong></td><td>' + $casTotalCount + '</td><td>' + $casTotalPct + '%</td><td>' + (Fmt $casHoursTotal) + '</td><td>' + $casHoursPct + '%</td></tr>')
+    [void]$L.Add('      <tr><td><strong>&#1048;&#1075;&#1088;&#1086;&#1074;&#1099;&#1077; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1099; ART (backlog)</strong></td><td>' + $backlogTotalCount + '</td><td>' + $bkTotalPct + '%</td><td>' + (Fmt $backlogHoursTotal) + '</td><td>' + $bkHoursPct + '%</td></tr>')
+    [void]$L.Add('      <tr class="total-row"><td>&#1048;&#1058;&#1054;&#1043;&#1054;</td><td>' + $grandTotal + '</td><td>100%</td><td>' + (Fmt $grandHours) + '</td><td>100%</td></tr>')
     [void]$L.Add('    </table>')
 
     [void]$L.Add('    <div class="subsection-title" style="font-size:13px;font-weight:700;margin:20px 0 10px;color:#4a5568;text-transform:uppercase;letter-spacing:.4px;">&#1055;&#1086; CAS-&#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</div>')
-    [void]$L.Add('    <table class="summary-table"><tr><th>&#1055;&#1088;&#1086;&#1077;&#1082;&#1090;</th><th>&#1047;&#1072;&#1082;&#1088;&#1099;&#1090;&#1086; &#1079;&#1072;&#1076;&#1072;&#1095;</th><th>%</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th></tr>')
+    [void]$L.Add('    <table class="summary-table"><tr><th>&#1055;&#1088;&#1086;&#1077;&#1082;&#1090;</th><th>&#1047;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</th><th>%</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th></tr>')
     foreach ($gid in $CAS_LABELS.Keys) {
         $rs  = $rawProjStats[$gid]; $hrs = $rs.hoursMin / 60.0
-        $pct = if ($casClosedTotal -gt 0) { [math]::Round($rs.closed / $casClosedTotal * 100, 1) } else { 0 }
-        [void]$L.Add('      <tr><td>' + (Esc $rs.name) + '</td><td>' + $rs.closed + '</td><td>' + $pct + '%</td><td>' + (Fmt $hrs) + '</td></tr>')
+        $pct = if ($casTotalCount -gt 0) { [math]::Round($rs.total / $casTotalCount * 100, 1) } else { 0 }
+        [void]$L.Add('      <tr><td>' + $rs.name + '</td><td>' + $rs.total + '</td><td>' + $pct + '%</td><td>' + (Fmt $hrs) + '</td></tr>')
     }
-    [void]$L.Add('      <tr class="total-row"><td>&#1048;&#1058;&#1054;&#1043;&#1054;</td><td>' + $casClosedTotal + '</td><td>100%</td><td>' + (Fmt $casHoursTotal) + '</td></tr>')
+    [void]$L.Add('      <tr class="total-row"><td>&#1048;&#1058;&#1054;&#1043;&#1054;</td><td>' + $casTotalCount + '</td><td>100%</td><td>' + (Fmt $casHoursTotal) + '</td></tr>')
     [void]$L.Add('    </table>')
 
     [void]$L.Add('    <div class="subsection-title" style="font-size:13px;font-weight:700;margin:20px 0 10px;color:#4a5568;text-transform:uppercase;letter-spacing:.4px;">&#1055;&#1086; &#1080;&#1075;&#1088;&#1086;&#1074;&#1099;&#1084; (backlog) &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084; ART</div>')
-    [void]$L.Add('    <table class="summary-table"><tr><th>&#1055;&#1088;&#1086;&#1077;&#1082;&#1090;</th><th>&#1047;&#1072;&#1082;&#1088;&#1099;&#1090;&#1086; &#1079;&#1072;&#1076;&#1072;&#1095;</th><th>%</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th></tr>')
+    [void]$L.Add('    <table class="summary-table"><tr><th>&#1055;&#1088;&#1086;&#1077;&#1082;&#1090;</th><th>&#1047;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</th><th>%</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th></tr>')
     foreach ($gid in $BACKLOG_LABELS.Keys) {
         $rs  = $rawProjStats[$gid]; $hrs = $rs.hoursMin / 60.0
-        $pct = if ($backlogClosedTotal -gt 0) { [math]::Round($rs.closed / $backlogClosedTotal * 100, 1) } else { 0 }
-        [void]$L.Add('      <tr><td>' + (Esc $rs.name) + '</td><td>' + $rs.closed + '</td><td>' + $pct + '%</td><td>' + (Fmt $hrs) + '</td></tr>')
+        $pct = if ($backlogTotalCount -gt 0) { [math]::Round($rs.total / $backlogTotalCount * 100, 1) } else { 0 }
+        [void]$L.Add('      <tr><td>' + $rs.name + '</td><td>' + $rs.total + '</td><td>' + $pct + '%</td><td>' + (Fmt $hrs) + '</td></tr>')
     }
-    [void]$L.Add('      <tr class="total-row"><td>&#1048;&#1058;&#1054;&#1043;&#1054;</td><td>' + $backlogClosedTotal + '</td><td>100%</td><td>' + (Fmt $backlogHoursTotal) + '</td></tr>')
+    [void]$L.Add('      <tr class="total-row"><td>&#1048;&#1058;&#1054;&#1043;&#1054;</td><td>' + $backlogTotalCount + '</td><td>100%</td><td>' + (Fmt $backlogHoursTotal) + '</td></tr>')
     [void]$L.Add('    </table>')
     [void]$L.Add('  </div>')
     [void]$L.Add('</details>')
