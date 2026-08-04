@@ -425,6 +425,8 @@ $L = [System.Collections.Generic.List[string]]::new()
 [void]$L.Add('.notice-g { background:#f0fff4; border-left:4px solid #38a169; padding:12px 16px; border-radius:6px; margin-bottom:24px; font-size:13px; color:#276749; }')
 [void]$L.Add('.section-title { font-size:16px; font-weight:700; color:#4a5568; margin-bottom:12px; display:flex; align-items:center; gap:8px; }')
 [void]$L.Add('.section-title::before { content:""; display:block; width:4px; height:18px; background:#667eea; border-radius:2px; }')
+[void]$L.Add('.section-title a { color:inherit; text-decoration:none; }')
+[void]$L.Add('.section-title a:hover { text-decoration:underline; }')
 [void]$L.Add('.card { background:white; border-radius:12px; padding:20px 24px; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,.08); }')
 [void]$L.Add('.summary-table { width:100%; border-collapse:collapse; }')
 [void]$L.Add('.summary-table th { background:#f7f8fc; text-align:left; padding:10px 14px; font-weight:600; font-size:12px; color:#718096; text-transform:uppercase; letter-spacing:.5px; border-bottom:2px solid #e2e8f0; }')
@@ -500,7 +502,7 @@ $L = [System.Collections.Generic.List[string]]::new()
 
 # Dept grid
 [void]$L.Add('<div class="card">')
-[void]$L.Add('  <div class="section-title">&#1056;&#1072;&#1079;&#1073;&#1080;&#1074;&#1082;&#1072; &#1087;&#1086; &#1085;&#1072;&#1087;&#1088;&#1072;&#1074;&#1083;&#1077;&#1085;&#1080;&#1103;&#1084; ART</div>')
+[void]$L.Add('  <div class="section-title" id="directions"><a href="#directions">&#1056;&#1072;&#1079;&#1073;&#1080;&#1074;&#1082;&#1072; &#1087;&#1086; &#1085;&#1072;&#1087;&#1088;&#1072;&#1074;&#1083;&#1077;&#1085;&#1080;&#1103;&#1084; ART</a></div>')
 [void]$L.Add('  <div class="dept-grid">')
 foreach ($dir in $deptOrder) {
     $dh   = if ($byDirection.ContainsKey($dir)) { $byDirection[$dir] } else { 0.0 }
@@ -513,7 +515,7 @@ foreach ($dir in $deptOrder) {
 
 # Distribution chart
 [void]$L.Add('<div class="card">')
-[void]$L.Add('  <div class="section-title">&#1056;&#1072;&#1089;&#1087;&#1088;&#1077;&#1076;&#1077;&#1083;&#1077;&#1085;&#1080;&#1077; &#1087;&#1086; &#1091;&#1095;&#1105;&#1090;&#1085;&#1099;&#1084; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</div>')
+[void]$L.Add('  <div class="section-title" id="distribution"><a href="#distribution">&#1056;&#1072;&#1089;&#1087;&#1088;&#1077;&#1076;&#1077;&#1083;&#1077;&#1085;&#1080;&#1077; &#1087;&#1086; &#1091;&#1095;&#1105;&#1090;&#1085;&#1099;&#1084; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</a></div>')
 [void]$L.Add('  <div class="dist-chart">')
 $ci = 0
 foreach ($kv in $sortedProj) {
@@ -530,7 +532,7 @@ foreach ($kv in $sortedProj) {
 
 # Summary table
 [void]$L.Add('<div class="card">')
-[void]$L.Add('  <div class="section-title">&#1057;&#1074;&#1086;&#1076;&#1085;&#1072;&#1103; &#1090;&#1072;&#1073;&#1083;&#1080;&#1094;&#1072; &#1087;&#1086; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</div>')
+[void]$L.Add('  <div class="section-title" id="summary"><a href="#summary">&#1057;&#1074;&#1086;&#1076;&#1085;&#1072;&#1103; &#1090;&#1072;&#1073;&#1083;&#1080;&#1094;&#1072; &#1087;&#1086; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</a></div>')
 [void]$L.Add('  <table class="summary-table">')
 [void]$L.Add('    <thead><tr><th>#</th><th>&#1055;&#1088;&#1086;&#1077;&#1082;&#1090; (&#1091;&#1095;&#1105;&#1090;&#1085;&#1099;&#1081;)</th><th>&#1053;&#1072;&#1087;&#1088;&#1072;&#1074;&#1083;&#1077;&#1085;&#1080;&#1103; ART</th><th>&#1047;&#1072;&#1076;&#1072;&#1095;</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th><th>%</th><th>&#1044;&#1086;&#1083;&#1103;</th></tr></thead>')
 [void]$L.Add('    <tbody>')
@@ -559,7 +561,7 @@ foreach ($kv in $sortedProj) {
 
 # Details by project
 [void]$L.Add('<div class="card">')
-[void]$L.Add('  <div class="section-title">&#1044;&#1077;&#1090;&#1072;&#1083;&#1080;&#1079;&#1072;&#1094;&#1080;&#1103; &#1079;&#1072;&#1076;&#1072;&#1095; &#1087;&#1086; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</div>')
+[void]$L.Add('  <div class="section-title" id="project-details"><a href="#project-details">&#1044;&#1077;&#1090;&#1072;&#1083;&#1080;&#1079;&#1072;&#1094;&#1080;&#1103; &#1079;&#1072;&#1076;&#1072;&#1095; &#1087;&#1086; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</a></div>')
 foreach ($kv in $sortedProj) {
     $ph     = $kv.Value.hours
     $ptasks = $kv.Value.tasks.Count
@@ -584,7 +586,7 @@ foreach ($kv in $sortedProj) {
 
 # Employees section (Art Team)
 [void]$L.Add('<div class="card">')
-[void]$L.Add('  <div class="section-title">&#1056;&#1072;&#1089;&#1087;&#1088;&#1077;&#1076;&#1077;&#1083;&#1077;&#1085;&#1080;&#1077; &#1088;&#1072;&#1073;&#1086;&#1090; &#1087;&#1086; &#1089;&#1086;&#1090;&#1088;&#1091;&#1076;&#1085;&#1080;&#1082;&#1072;&#1084;</div>')
+[void]$L.Add('  <div class="section-title" id="employees"><a href="#employees">&#1056;&#1072;&#1089;&#1087;&#1088;&#1077;&#1076;&#1077;&#1083;&#1077;&#1085;&#1080;&#1077; &#1088;&#1072;&#1073;&#1086;&#1090; &#1087;&#1086; &#1089;&#1086;&#1090;&#1088;&#1091;&#1076;&#1085;&#1080;&#1082;&#1072;&#1084;</a></div>')
 [void]$L.Add('  <div style="font-size:12px;color:#718096;margin-bottom:12px;">&#1048;&#1089;&#1090;&#1086;&#1095;&#1085;&#1080;&#1082; &#1089;&#1087;&#1080;&#1089;&#1082;&#1072; &#1089;&#1086;&#1090;&#1088;&#1091;&#1076;&#1085;&#1080;&#1082;&#1086;&#1074; &#8212; &#1082;&#1086;&#1084;&#1072;&#1085;&#1076;&#1072; Art Team. &#1059;&#1095;&#1090;&#1077;&#1085;&#1099; &#1079;&#1072;&#1076;&#1072;&#1095;&#1080; &#1074;&#1085;&#1077; ART-&#1087;&#1086;&#1088;&#1090;&#1092;&#1077;&#1083;&#1103; (&#1089;&#1077;&#1088;&#1099;&#1077; &#1084;&#1077;&#1090;&#1082;&#1080; &#171;&#1042;&#1085;&#1077; ART&#187;).</div>')
 foreach ($kv in $sortedAssignees) {
     if ($kv.Key -eq 'Unassigned') { continue }
@@ -675,7 +677,7 @@ if ($prevData2 -and $prevPeriodLbl) {
     $left0   = @($prevPP.Keys | Where-Object { -not $currPP.ContainsKey($_) } | Sort-Object)
 
     [void]$L.Add('<div class="card">')
-    [void]$L.Add('  <div class="section-title">&#1057;&#1088;&#1072;&#1074;&#1085;&#1077;&#1085;&#1080;&#1077; &#1089; ' + (Esc $prevPeriodLbl) + '</div>')
+    [void]$L.Add('  <div class="section-title" id="comparison"><a href="#comparison">&#1057;&#1088;&#1072;&#1074;&#1085;&#1077;&#1085;&#1080;&#1077; &#1089; ' + (Esc $prevPeriodLbl) + '</a></div>')
 
     # 3-column summary
     [void]$L.Add('  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;">')
@@ -806,7 +808,7 @@ while ($md -le $curPeriodDate) {
 
 if ($trendPoints.Count -ge 2) {
     [void]$L.Add('<div class="card">')
-    [void]$L.Add('  <div class="section-title">&#1044;&#1080;&#1085;&#1072;&#1084;&#1080;&#1082;&#1072; &#1087;&#1086; &#1084;&#1077;&#1089;&#1103;&#1094;&#1072;&#1084; &#8212; &#1079;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</div>')
+    [void]$L.Add('  <div class="section-title" id="trend"><a href="#trend">&#1044;&#1080;&#1085;&#1072;&#1084;&#1080;&#1082;&#1072; &#1087;&#1086; &#1084;&#1077;&#1089;&#1103;&#1094;&#1072;&#1084; &#8212; &#1079;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;</a></div>')
     [void]$L.Add('  ' + (Build-TrendSvg $trendPoints))
     [void]$L.Add('  <div style="color:#a0aec0;font-size:12px;margin-top:8px;">&#1052;&#1077;&#1090;&#1088;&#1080;&#1082;&#1072; &#8212; &#1090;&#1072; &#1078;&#1077;, &#1095;&#1090;&#1086; &#1074; &#1096;&#1072;&#1087;&#1082;&#1077; &#1082;&#1072;&#1078;&#1076;&#1086;&#1075;&#1086; &#1084;&#1077;&#1089;&#1103;&#1095;&#1085;&#1086;&#1075;&#1086; &#1086;&#1090;&#1095;&#1105;&#1090;&#1072; (&laquo;&#1047;&#1072;&#1076;&#1072;&#1095; &#1089; &#1090;&#1088;&#1077;&#1082;&#1080;&#1085;&#1075;&#1086;&#1084;&raquo;): &#1087;&#1086;&#1088;&#1090;&#1092;&#1077;&#1083;&#1100;&#1085;&#1099;&#1077; &#1079;&#1072;&#1076;&#1072;&#1095;&#1080; ART &#1089; &#1092;&#1072;&#1082;&#1090;&#1080;&#1095;&#1077;&#1089;&#1082;&#1080; &#1079;&#1072;&#1083;&#1086;&#1075;&#1080;&#1088;&#1086;&#1074;&#1072;&#1085;&#1085;&#1099;&#1084; &#1074;&#1088;&#1077;&#1084;&#1077;&#1085;&#1077;&#1084; &#1074; &#1087;&#1077;&#1088;&#1080;&#1086;&#1076;&#1077;.</div>')
     [void]$L.Add('</div>')
