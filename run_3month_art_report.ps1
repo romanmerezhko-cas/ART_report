@@ -5,6 +5,19 @@
 # Custom period: pass -Start/-End as yyyy-MM-dd (the skill parses the user's "MM-MM.YYYY" shorthand
 # into these before calling this script).
 #
+# Task-discovery source (changed 14.08.2026 to match the trusted /weekly_ART_report skill's
+# ART_report_YYYY-MM.html numbers, at Roman's request):
+#   - Step 1b/2b: scan the 13 ART-department portfolio projects (GID 1213829329062998) for task
+#     ASSIGNEES, regardless of whether they're on the current Art Team roster - same as the trusted
+#     report's Step 1 (it never filters by assignee for this population). Only harvests identities;
+#     each found person then gets the SAME full adaptive search as everyone else (step 3-5), so there
+#     is one single task-discovery mechanism instead of merging two different populations.
+#   - Attribution: a task counts toward a real game's bucket if multi-homed into one of the Games
+#     Portfolio's projects. If it lives ONLY inside the ART-dept portfolio (never multi-homed to a
+#     specific game), it falls back to that ART-dept project's own name as its own bucket (e.g. "3D
+#     Art: Backlog") - matching the trusted report's leftover backlog buckets instead of dropping
+#     that time.
+#
 # Design notes (lessons from building this the first time, 14.08.2026):
 #   - Task DISCOVERY window is bounded by TODAY, not by $End: a task's modified_on keeps advancing
 #     whenever anyone touches it (comment, status, reassignment) long after its time was logged, so
@@ -127,6 +140,22 @@ foreach ($g in $projectMap.Keys) { $GAME_GID_SET[$g] = $true }
 Write-Host "[1] Games Portfolio: $($projectMap.Count) live projects"
 
 # ------------------------------------------------------------
+# 1b. ART Department portfolio (13 internal pipeline/backlog projects) - same source the trusted
+#     /weekly_ART_report skill uses. Tasks living ONLY here (never multi-homed into a real game
+#     project) still get counted, attributed to the ART-dept project's own name (e.g. "3D Art:
+#     Backlog") - exactly like the trusted report's dist-chart shows leftover backlog buckets.
+# ------------------------------------------------------------
+$ART_PORTFOLIO_GID = "1213829329062998"
+$artDeptMap = @{}
+$artDeptTop = (Invoke-AsanaGet "$apiBase/portfolios/$ART_PORTFOLIO_GID/items?opt_fields=gid,name,resource_type,archived&limit=100").data
+foreach ($item in $artDeptTop) {
+    if ($item.resource_type -eq "project" -and -not [bool]$item.archived) { $artDeptMap[$item.gid] = $item.name }
+}
+$ART_DEPT_GID_SET = @{}
+foreach ($g in $artDeptMap.Keys) { $ART_DEPT_GID_SET[$g] = $true }
+Write-Host "[1b] ART department portfolio: $($artDeptMap.Count) projects"
+
+# ------------------------------------------------------------
 # 2. Art Team members, Roman Merezhko excluded by GID
 # ------------------------------------------------------------
 $TEAM_GID = "1213453988877387"
@@ -138,6 +167,35 @@ foreach ($u in $respTeam.data) {
     $teamMembers[$u.gid] = $u.name
 }
 Write-Host "[2] Art Team members (Roman Merezhko excluded): $($teamMembers.Count)"
+
+# ------------------------------------------------------------
+# 2b. Discovery-only scan of the 13 ART-dept projects for task ASSIGNEES, regardless of current Art
+#     Team membership (matches the trusted report's Step 1: it never filters by assignee there).
+#     This only harvests WHO touched these projects - their actual tasks/hours are still fetched via
+#     each person's own full adaptive search below (step 3-5), which already finds everything they're
+#     assigned to (backlog tasks, subtasks, direct game-project tasks - all of it) in one pass. That
+#     keeps one single, already-correct task-discovery mechanism instead of merging two different ones.
+#     Top-level tasks only (a subtask assigned to someone NOT found here would be a very rare edge
+#     case: subtasks are almost always assigned to the same people already working the parent epic).
+# ------------------------------------------------------------
+$universe = [ordered]@{}
+foreach ($mgid in $teamMembers.Keys) { $universe[$mgid] = $teamMembers[$mgid] }
+foreach ($projGid in $artDeptMap.Keys) {
+    $offset = $null
+    do {
+        $url = "$apiBase/projects/$projGid/tasks?opt_fields=assignee.gid,assignee.name&limit=100"
+        if ($offset) { $url += "&offset=$offset" }
+        $r = Invoke-AsanaGet $url
+        foreach ($t in $r.data) {
+            if ($t.assignee -and $t.assignee.gid -and -not $EXCLUDED_GIDS.ContainsKey([string]$t.assignee.gid) -and -not $universe.Contains([string]$t.assignee.gid)) {
+                $universe[[string]$t.assignee.gid] = [string]$t.assignee.name
+            }
+        }
+        $offset = if ($r.next_page -and $r.next_page.offset) { $r.next_page.offset } else { $null }
+    } while ($offset)
+}
+$extraCount = $universe.Count - $teamMembers.Count
+Write-Host "[2b] Extra assignees found via ART-dept scan (outside current Art Team): $extraCount"
 
 # ------------------------------------------------------------
 # 3. Adaptive date-range task search (guarantees completeness past the 100-result cap)
@@ -174,7 +232,7 @@ function Get-EffectiveMemberships($task) {
     while ($climbGid -and $depth -lt 5) {
         if (-not $parentCache.ContainsKey($climbGid)) {
             try {
-                $pt = (Invoke-AsanaGet "$apiBase/tasks/$climbGid?opt_fields=memberships.project.gid,memberships.project.name,parent.gid").data
+                $pt = (Invoke-AsanaGet "$apiBase/tasks/$climbGid`?opt_fields=memberships.project.gid,memberships.project.name,parent.gid").data
                 $pMems = if ($pt.memberships) { $pt.memberships } else { @() }
                 $pParentGid = if ($pt.parent) { $pt.parent.gid } else { $null }
                 $parentCache[$climbGid] = @{ memberships = $pMems; parentGid = $pParentGid }
@@ -191,20 +249,21 @@ function Get-EffectiveMemberships($task) {
 }
 
 # ------------------------------------------------------------
-# 5. Collect per member: tasks -> time_tracking_entries -> monthly buckets
+# 5. Collect per person in $universe (current Art Team + extra ART-dept contributors):
+#    tasks -> time_tracking_entries -> monthly buckets
 # ------------------------------------------------------------
 $perAssignee = [ordered]@{}
-foreach ($mgid in $teamMembers.Keys) {
-    $name = $teamMembers[$mgid]
+foreach ($mgid in $universe.Keys) {
+    $name = $universe[$mgid]
     $perAssignee[$name] = [ordered]@{ months = [ordered]@{}; tasks = [System.Collections.Generic.List[object]]::new() }
     foreach ($mk in $Months) { $perAssignee[$name].months[$mk] = @{ total = 0.0; portfolio = 0.0 } }
 }
 
 $mi = 0
-foreach ($mgid in $teamMembers.Keys) {
+foreach ($mgid in $universe.Keys) {
     $mi++
-    $name = $teamMembers[$mgid]
-    Write-Host "[3] ($mi/$($teamMembers.Count)) $name ..."
+    $name = $universe[$mgid]
+    Write-Host "[3] ($mi/$($universe.Count)) $name ..."
 
     $memberTasks = @{}
     Get-TasksInRange $mgid $Start $EndExclusive $memberTasks 0
@@ -215,7 +274,11 @@ foreach ($mgid in $teamMembers.Keys) {
         $ti++
         $t = $memberTasks[$tgid]
         $effMems = Get-EffectiveMemberships $t
-        $isPortfolio = $false; $portfolioProjName = $null; $otherProjName = $null
+        # Attribution matches the trusted report: first non-ART-dept membership wins (real game name).
+        # If the task lives only inside the ART-dept portfolio (no game multi-home), fall back to that
+        # ART-dept project's own name - still counted as "portfolio" (isPortfolio=true), same as the
+        # trusted report's leftover backlog buckets (e.g. "3D Art: Backlog").
+        $isPortfolio = $false; $portfolioProjName = $null; $artDeptProjName = $null; $otherProjName = $null
         foreach ($m in $effMems) {
             if ($m.PSObject.Properties['project'] -and $m.project -and $GAME_GID_SET.ContainsKey([string]$m.project.gid)) {
                 $isPortfolio = $true; $portfolioProjName = [string]$m.project.name; break
@@ -223,10 +286,17 @@ foreach ($mgid in $teamMembers.Keys) {
         }
         if (-not $isPortfolio) {
             foreach ($m in $effMems) {
+                if ($m.PSObject.Properties['project'] -and $m.project -and $ART_DEPT_GID_SET.ContainsKey([string]$m.project.gid)) {
+                    $isPortfolio = $true; $artDeptProjName = [string]$m.project.name; break
+                }
+            }
+        }
+        if (-not $isPortfolio) {
+            foreach ($m in $effMems) {
                 if ($m.PSObject.Properties['project'] -and $m.project) { $otherProjName = [string]$m.project.name; break }
             }
         }
-        $projName = if ($isPortfolio) { $portfolioProjName } elseif ($otherProjName) { $otherProjName } else { "" }
+        $projName = if ($portfolioProjName) { $portfolioProjName } elseif ($artDeptProjName) { $artDeptProjName } elseif ($otherProjName) { $otherProjName } else { "" }
 
         try {
             $te = Invoke-AsanaGet "$apiBase/tasks/$tgid/time_tracking_entries?opt_fields=duration_minutes,entered_on&limit=100"
@@ -377,7 +447,6 @@ $L = [System.Collections.Generic.List[string]]::new()
 [void]$L.Add('  </div>')
 [void]$L.Add('</div>')
 
-[void]$L.Add('<div class="notice-g">&#9989; ' + (Esc $labels.noticeMethod) + '</div>')
 [void]$L.Add('<div class="notice-y">&#9888;&#65039; <strong>' + (Esc $labels.caveatsTitle) + '</strong>')
 [void]$L.Add('  <ul>')
 [void]$L.Add('    <li><strong>' + $vacationTaskCount + '</strong> ' + (Esc $labels.caveatVacationMiddle) + ' <em>' + (Esc $labels.vacationProjectName) + '</em> &#8212; ' + (Esc $labels.caveatVacationSuffix) + '</li>')

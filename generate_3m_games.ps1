@@ -134,7 +134,7 @@ function Get-EffectiveMemberships($task) {
     while ($climbGid -and $depth -lt 5) {
         if (-not $parentCache.ContainsKey($climbGid)) {
             try {
-                $pt = (Invoke-AsanaGet "$apiBase/tasks/$climbGid?opt_fields=memberships.project.gid,memberships.project.name,parent.gid").data
+                $pt = (Invoke-AsanaGet "$apiBase/tasks/$climbGid`?opt_fields=memberships.project.gid,memberships.project.name,parent.gid").data
                 $pMems = if ($pt.memberships) { $pt.memberships } else { @() }
                 $pParentGid = if ($pt.parent) { $pt.parent.gid } else { $null }
                 $parentCache[$climbGid] = @{ memberships = $pMems; parentGid = $pParentGid }
