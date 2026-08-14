@@ -214,11 +214,38 @@ foreach ($exGid in @($teamMembers.Keys)) {
 }
 Write-Host "  Team members: $($teamMembers.Count)"
 
+# Asana's tasks/search endpoint never paginates past 100 results (confirmed 14.08.2026 while
+# building /3month_ART_report: a bare 100-limit query silently truncates for high-volume assignees,
+# with no next_page offered). Adaptively split the date range in half whenever a sub-query returns
+# exactly 100, merging results, until every sub-range is under the cap (or hits single-day
+# granularity, logged as a WARNING - genuine 100+/day from one person is not expected in practice).
+function Get-CandidateTasksAdaptive([string]$uGid, [string]$rangeStart, [string]$rangeEndExclusive, [hashtable]$acc, [int]$depth) {
+    $url = "$apiBase/workspaces/$WS_GID/tasks/search?assignee.any=$uGid&modified_on.after=$rangeStart&modified_on.before=$rangeEndExclusive&opt_fields=gid,name,assignee.name,memberships.project.gid,memberships.project.name,permalink_url&limit=100"
+    try { $resp = Invoke-RestMethod $url -Headers $headers } catch { Write-Host "  search failed for range $rangeStart..$rangeEndExclusive : $_"; return }
+    $items = @($resp.data)
+    if ($items.Count -eq 100 -and $depth -lt 12) {
+        $sD = [datetime]::ParseExact($rangeStart,'yyyy-MM-dd',$null)
+        $eD = [datetime]::ParseExact($rangeEndExclusive,'yyyy-MM-dd',$null)
+        $spanDays = ($eD - $sD).Days
+        if ($spanDays -le 1) {
+            foreach ($task in $items) { $acc[$task.gid] = $task }
+            Write-Host "  WARNING: $uGid hit 100 results on a single day ($rangeStart) - accepting as-is"
+            return
+        }
+        $mid = $sD.AddDays([math]::Floor($spanDays / 2)).ToString('yyyy-MM-dd')
+        Get-CandidateTasksAdaptive $uGid $rangeStart $mid $acc ($depth + 1)
+        Get-CandidateTasksAdaptive $uGid $mid $rangeEndExclusive $acc ($depth + 1)
+    } else {
+        foreach ($task in $items) { $acc[$task.gid] = $task }
+    }
+}
+
 $candidates = @{}
+$searchEndExclusive = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
 foreach ($uGid in $teamMembers.Keys) {
-    $url = "$apiBase/workspaces/$WS_GID/tasks/search?assignee.any=$uGid&modified_on.after=$Start&opt_fields=gid,name,assignee.name,memberships.project.gid,memberships.project.name,permalink_url&limit=100"
-    try { $resp = Invoke-RestMethod $url -Headers $headers } catch { Write-Host "  search failed for $($teamMembers[$uGid]): $_"; continue }
-    foreach ($task in $resp.data) {
+    $rawTasks = @{}
+    Get-CandidateTasksAdaptive $uGid $Start $searchEndExclusive $rawTasks 0
+    foreach ($task in $rawTasks.Values) {
         if ($allTasks.ContainsKey($task.gid) -or $candidates.ContainsKey($task.gid)) { continue }
         $mems = @()
         if ($task.memberships) {
@@ -606,6 +633,19 @@ $L = [System.Collections.Generic.List[string]]::new()
 [void]$L.Add('.dist-bar-wrap { flex:1; background:#edf2f7; border-radius:4px; height:20px; }')
 [void]$L.Add('.dist-bar { height:20px; border-radius:4px; display:flex; align-items:center; padding-left:8px; font-size:11px; color:white; font-weight:600; white-space:nowrap; min-width:36px; }')
 [void]$L.Add('.dist-val { width:70px; text-align:right; font-size:12px; color:#718096; flex-shrink:0; }')
+[void]$L.Add('details.proj-row { margin-bottom:8px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }')
+[void]$L.Add('details.proj-row > summary { cursor:pointer; padding:10px 14px; background:#f7f8fc; list-style:none; display:flex; align-items:center; gap:14px; }')
+[void]$L.Add('details.proj-row > summary::-webkit-details-marker { display:none; }')
+[void]$L.Add('details.proj-row > summary::after { content:"\25B8"; color:#a0aec0; font-size:12px; }')
+[void]$L.Add('details.proj-row[open] > summary { border-radius:8px 8px 0 0; }')
+[void]$L.Add('details.proj-row[open] > summary::after { content:"\25BE"; }')
+[void]$L.Add('.proj-row-rank { flex-shrink:0; width:22px; }')
+[void]$L.Add('.proj-row-name { flex:1; min-width:160px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }')
+[void]$L.Add('.proj-row-tasks { flex-shrink:0; width:64px; text-align:center; color:#718096; font-size:13px; }')
+[void]$L.Add('.proj-row-bar-wrap { flex-shrink:0; width:180px; background:#edf2f7; border-radius:4px; height:20px; }')
+[void]$L.Add('.proj-row-bar { height:20px; border-radius:4px; display:flex; align-items:center; padding-left:8px; font-size:11px; color:white; font-weight:600; white-space:nowrap; min-width:32px; }')
+[void]$L.Add('.proj-row-hours { flex-shrink:0; width:80px; text-align:right; font-weight:700; font-size:15px; color:#2d3748; }')
+[void]$L.Add('.proj-row-summary-line { font-size:13px; color:#718096; margin-bottom:12px; }')
 [void]$L.Add('.dept-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }')
 [void]$L.Add('.dept-card { background:#f7f8fc; border-radius:8px; padding:16px; text-align:center; border:1px solid #e2e8f0; }')
 [void]$L.Add('.dept-card .dept-name { font-size:12px; font-weight:600; color:#718096; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px; }')
@@ -661,30 +701,14 @@ foreach ($dir in $deptOrder) {
 [void]$L.Add('  </div>')
 [void]$L.Add('</div>')
 
-# Distribution chart
-[void]$L.Add('<div class="card">')
-[void]$L.Add('  <div class="section-title" id="distribution"><a href="#distribution">&#1056;&#1072;&#1089;&#1087;&#1088;&#1077;&#1076;&#1077;&#1083;&#1077;&#1085;&#1080;&#1077; &#1087;&#1086; &#1091;&#1095;&#1105;&#1090;&#1085;&#1099;&#1084; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</a></div>')
-[void]$L.Add('  <div class="dist-chart">')
-$ci = 0
-foreach ($kv in $sortedProj) {
-    $ph   = $kv.Value.hours
-    $ppct = [math]::Round($ph / $totalH * 100, 1)
-    $barW = [math]::Round($ph / $maxH * 100)
-    $col  = $barColors[$ci % $barColors.Count]
-    $phd  = Fmt $ph
-    [void]$L.Add('    <div class="dist-row"><div class="dist-label">' + (Esc $kv.Key) + '</div><div class="dist-bar-wrap"><div class="dist-bar" style="width:' + $barW + '%;background:' + $col + ';">' + $ppct + '%</div></div><div class="dist-val">' + $phd + ' &#1095;</div></div>')
-    $ci++
-}
-[void]$L.Add('  </div>')
-[void]$L.Add('</div>')
-
-# Summary table
+# Projects (merged: was 3 separate sections - distribution chart + summary table + project-details -
+# combined 14.08.2026 at Roman's request into one expandable list. Each row carries the old
+# summary-table's columns (rank, direction pills, task count, hours, %) plus the old dist-chart's
+# colored/labeled progress bar (width = % share, matching the old bar-width formula exactly), and
+# expands to the old project-details task table instead of living in a separate section.
 [void]$L.Add('<div class="card">')
 [void]$L.Add('  <div class="section-title" id="summary"><a href="#summary">&#1057;&#1074;&#1086;&#1076;&#1085;&#1072;&#1103; &#1090;&#1072;&#1073;&#1083;&#1080;&#1094;&#1072; &#1087;&#1086; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</a></div>')
-[void]$L.Add('  <table class="summary-table">')
-[void]$L.Add('    <thead><tr><th>#</th><th>&#1055;&#1088;&#1086;&#1077;&#1082;&#1090; (&#1091;&#1095;&#1105;&#1090;&#1085;&#1099;&#1081;)</th><th>&#1053;&#1072;&#1087;&#1088;&#1072;&#1074;&#1083;&#1077;&#1085;&#1080;&#1103; ART</th><th>&#1047;&#1072;&#1076;&#1072;&#1095;</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th><th>%</th><th>&#1044;&#1086;&#1083;&#1103;</th></tr></thead>')
-[void]$L.Add('    <tbody>')
-$ri = 0; $sumT = 0; $sumH = 0.0
+$ri = 0; $sumT = 0; $sumH = 0.0; $ci = 0
 foreach ($kv in $sortedProj) {
     $ri++
     $ph     = $kv.Value.hours
@@ -694,6 +718,8 @@ foreach ($kv in $sortedProj) {
     $ppct   = [math]::Round($ph / $totalH * 100, 1)
     $barW   = [math]::Round($ph / $maxH * 100)
     $phd    = Fmt $ph
+    $col    = $barColors[$ci % $barColors.Count]
+    $ci++
     $rankBadge = switch ($ri) {
         1 { '<span class="badge rank-1">1</span>' }
         2 { '<span class="badge rank-2">2</span>' }
@@ -701,22 +727,15 @@ foreach ($kv in $sortedProj) {
         default { "$ri" }
     }
     $pillsHtml = ($kv.Value.dirs.Keys | ForEach-Object { Art-Pill $_ }) -join ' '
-    [void]$L.Add('      <tr><td>' + $rankBadge + '</td><td><strong>' + (Esc $kv.Key) + '</strong></td><td><div class="art-types">' + $pillsHtml + '</div></td><td>' + $ptasks + '</td><td class="hours">' + $phd + '</td><td class="pct">' + $ppct + '%</td><td><div class="bar-wrap"><div class="bar" style="width:' + $barW + '%"></div></div></td></tr>')
-}
-[void]$L.Add('      <tr class="total-row"><td></td><td>&#1048;&#1058;&#1054;&#1043;&#1054;</td><td></td><td>' + $sumT + '</td><td class="hours">' + (Fmt $sumH) + '</td><td class="pct">100%</td><td></td></tr>')
-[void]$L.Add('    </tbody></table>')
-[void]$L.Add('</div>')
 
-# Details by project
-[void]$L.Add('<div class="card">')
-[void]$L.Add('  <div class="section-title" id="project-details"><a href="#project-details">&#1044;&#1077;&#1090;&#1072;&#1083;&#1080;&#1079;&#1072;&#1094;&#1080;&#1103; &#1079;&#1072;&#1076;&#1072;&#1095; &#1087;&#1086; &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1072;&#1084;</a></div>')
-foreach ($kv in $sortedProj) {
-    $ph     = $kv.Value.hours
-    $ptasks = $kv.Value.tasks.Count
-    $ppct   = [math]::Round($ph / $totalH * 100, 1)
-    $phd    = Fmt $ph
-    [void]$L.Add('  <details>')
-    [void]$L.Add('    <summary>' + (Esc $kv.Key) + '&nbsp;&nbsp;<span style="color:#718096;font-weight:400">' + $phd + ' &#1095; &mdash; ' + $ppct + '% &mdash; ' + $ptasks + ' &#1079;&#1072;&#1076;&#1072;&#1095;</span></summary>')
+    [void]$L.Add('  <details class="proj-row">')
+    [void]$L.Add('    <summary>')
+    [void]$L.Add('      <span class="proj-row-rank">' + $rankBadge + '</span>')
+    [void]$L.Add('      <span class="proj-row-name"><strong>' + (Esc $kv.Key) + '</strong><span class="art-types">' + $pillsHtml + '</span></span>')
+    [void]$L.Add('      <span class="proj-row-tasks">' + $ptasks + ' &#1079;&#1072;&#1076;.</span>')
+    [void]$L.Add('      <span class="proj-row-bar-wrap"><span class="proj-row-bar" style="display:flex;width:' + $barW + '%;background:' + $col + ';">' + $ppct + '%</span></span>')
+    [void]$L.Add('      <span class="proj-row-hours">' + $phd + ' &#1095;</span>')
+    [void]$L.Add('    </summary>')
     [void]$L.Add('    <div class="detail-content"><table class="detail-table">')
     [void]$L.Add('      <thead><tr><th>&#1047;&#1072;&#1076;&#1072;&#1095;&#1072;</th><th>&#1053;&#1072;&#1087;&#1088;&#1072;&#1074;&#1083;&#1077;&#1085;&#1080;&#1077;</th><th>&#1048;&#1089;&#1087;&#1086;&#1083;&#1085;&#1080;&#1090;&#1077;&#1083;&#1100;</th><th>&#1063;&#1072;&#1089;&#1086;&#1074;</th></tr></thead>')
     [void]$L.Add('      <tbody>')
@@ -730,6 +749,7 @@ foreach ($kv in $sortedProj) {
     [void]$L.Add('      </tbody></table></div>')
     [void]$L.Add('  </details>')
 }
+[void]$L.Add('  <div class="proj-row-summary-line">&#1048;&#1058;&#1054;&#1043;&#1054;: ' + @($sortedProj).Count + ' &#1087;&#1088;&#1086;&#1077;&#1082;&#1090;&#1086;&#1074; &mdash; ' + $sumT + ' &#1079;&#1072;&#1076;&#1072;&#1095; &mdash; ' + (Fmt $sumH) + ' &#1095; &mdash; 100%</div>')
 [void]$L.Add('</div>')
 
 # Employees section (Art Team)
