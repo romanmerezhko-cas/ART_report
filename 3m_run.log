@@ -1,0 +1,33 @@
+﻿=== ART Portfolio Time Share: РњР°Р№ - РСЋР»СЊ 2026 ===
+[1] ART portfolio projects: 13
+    - CAS.product
+    - CAS.socialmedia (SMM)
+    - CAS.ads (web+блог)
+    - CAS.the_rest (one pager, презентації, тощо)
+    - ASO Icons
+    - ASO Screenshots
+    - ASO Custom Product Pages (CPP)
+    - ASO In App Events (Promo)
+    - Banner ADS
+    - VFX: Backlog
+    - Animations: Backlog
+    - 3D Art: Backlog
+    - 2D Art | UX/UI Design: Backlog
+[2] Art Team members: 27
+[3] (1/27) Alisa Nadvorna ...
+    candidate tasks: 54
+powershell : Method invocation failed because [System.Collections.Specialized.OrderedDictionary] does not contain a 
+method named 
+At line:1 char:302
++ ... tch {} } }; powershell -ExecutionPolicy Bypass -File "D:\project\week ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Method invocati...a method named :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+'ContainsKey'.
+At D:\project\weekly_ART_report\generate_3m_time_share.ps1:143 char:17
++ ...          if (-not $perAssignee[$name].months.ContainsKey($mk)) { cont ...
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : MethodNotFound
+ 
